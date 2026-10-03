@@ -298,7 +298,8 @@ details summary{cursor:pointer;font-family:var(--font-display);font-weight:700;f
           <legend id="trLegend">振込の記録（支払日・振込元・振込先）</legend>
           <div class="transfers" id="transfersBox"></div>
           <div class="btns"><button type="button" class="link" id="addTransfer">＋ 振込を追加</button><button type="button" class="link calc-only" id="addMonthEnd">計算どおりの月末振込を追加</button></div>
-          <span class="hint" id="acctHint">口座は下の「このプロジェクトの設定」で登録すると選べるようになります。</span>
+          <span class="hint" id="acctHint">振込元・振込先の口座は、まだ登録されていません。</span>
+          <div class="btns"><button type="button" class="link" id="goAccts">口座を登録・編集する</button><button type="button" class="link" id="goDefs">内訳項目を設定する</button></div>
         </fieldset>
         <div class="row">
           <div class="field calc-only"><label for="fManual">本人からの追加返済</label><div class="yen"><input id="fManual" inputmode="numeric" placeholder="0"></div><span class="hint">現金などで別途返してもらった額</span></div>
@@ -389,7 +390,7 @@ details summary{cursor:pointer;font-family:var(--font-display);font-weight:700;f
           <div class="field"><label for="sStart" id="sStartLabel">開始時点の貸付残高</label><div class="yen"><input id="sStart" inputmode="numeric" placeholder="0"></div><span class="hint" id="sStartHint">ツールを使い始める前からの借金</span></div>
           <div class="field calc-only"><label for="sSurplus">報酬が固定額を上回った月</label><select id="sSurplus"><option value="pay">上回った分も全額支払う</option><option value="repay">上回った分を追加返済に回す</option></select></div>
         </div>
-        <fieldset>
+        <fieldset id="defsSet">
           <legend>支払いの内訳項目と計算式</legend>
           <span class="hint">1回の支払いを項目ごとに分けて記録できます。計算式を入れた項目は、ほかの項目や支払額から自動で計算されます。</span>
           <div class="defhead"><span>項目名</span><span>計算式（空欄なら手入力）</span><span></span></div>
@@ -402,7 +403,7 @@ details summary{cursor:pointer;font-family:var(--font-display);font-weight:700;f
           <span class="hint">使えるもの：+ − × ÷ ( )、数字（5% も可）、項目名・定数名・「支払額」、四捨五入( )・切り捨て( )・切り上げ( )・最小( , )・最大( , )。<br>例：支払額を入れて分ける → 利息＝切り捨て(支払額 × 利率)、元金＝支払額 − 利息。項目を入れて合計する → 支払額＝元金 + 利息。</span>
           <div class="ferr" id="defErr" hidden></div>
         </fieldset>
-        <fieldset>
+        <fieldset id="acctsSet">
           <legend>口座の登録</legend>
           <div class="accts" id="acctsBox"></div>
           <div><button type="button" class="link" id="addAcct">＋ 口座を追加</button></div>
@@ -1332,6 +1333,15 @@ $("ledger").addEventListener("click", e=>{ const tr = e.target.closest("tr[data-
 $("ledger").addEventListener("keydown", e=>{ if (e.key==="Enter"){ const tr = e.target.closest("tr[data-id]"); if (tr) openRow(tr.dataset.id); } });
 $("sRuleType").addEventListener("change", syncSettingsRule);
 $("sMode").addEventListener("change", syncSettingsMode);
+/* 入力欄の近くから、下の設定の該当箇所を開いて移動する */
+function goSetting(setId, addFn, box){
+  $("settingsBox").open = true;
+  if (!$(box).children.length) addFn({});
+  $(setId).scrollIntoView({ behavior:"smooth", block:"start" });
+  const first = $(box).querySelector("input"); if (first) setTimeout(()=>first.focus({ preventScroll:true }), 300);
+}
+$("goAccts").addEventListener("click", ()=>goSetting("acctsSet", addAcctRow, "acctsBox"));
+$("goDefs").addEventListener("click", ()=>goSetting("defsSet", addItemDefRow, "itemDefBox"));
 $("addItemDef").addEventListener("click", ()=>addItemDefRow({}).querySelector("input").focus());
 $("addConst").addEventListener("click", ()=>addConstRow({}).querySelector("input").focus());
 $("addTransfer").addEventListener("click", ()=>{ addTransferRow({ date: todayStr(), kind: isSimple() ? "repay" : "monthEnd" }).querySelector("input").focus(); });
