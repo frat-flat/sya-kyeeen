@@ -46,6 +46,8 @@ h2{font-size:1.15rem;font-weight:700}
 .kpi span{display:block;font-size:.78rem;color:var(--muted);letter-spacing:.04em}
 .kpi b{display:block;font-size:1.35rem;font-family:var(--font-body);font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .kpi.main b{color:var(--loan)}
+.kpi .kfx,.big .kfx{display:block;margin-top:6px;font-size:.72rem;line-height:1.5;color:var(--muted);letter-spacing:0;white-space:pre-line;overflow-wrap:anywhere}
+.kfx:empty{display:none!important}
 /* 返済額を直接入力する方式では 現在の借入額・現在の返済額・合計借入額・合計返済額 の順 */
 .kpis.simple .kpi.main{order:-2} .kpis.simple .kpi.now{order:-1}
 .calc{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,6fr);gap:20px;align-items:start}
@@ -335,10 +337,10 @@ details summary{cursor:pointer;font-family:var(--font-display);font-weight:700;f
   <div class="note" id="importBox" hidden>このブラウザに以前の記録が残っています。<button type="button" class="link" id="importBtn">クラウドに取り込む</button></div>
 
   <section class="kpis pv lv" aria-label="現在の状況">
-    <div class="kpi"><span id="kRepayLabel">累計 返済額</span><b id="kRepay" class="down">0円</b></div>
-    <div class="kpi"><span id="kLastLabel">直近月の返済額</span><b id="kLast">0円</b></div>
-    <div class="kpi main"><span id="kBalanceLabel">現在の貸付残高</span><b id="kBalance">0円</b></div>
-    <div class="kpi now"><span id="kLoanLabel">累計 貸付（補填）</span><b id="kLoan">0円</b></div>
+    <div class="kpi"><span id="kRepayLabel">累計 返済額</span><b id="kRepay" class="down">0円</b><span class="kfx" id="kRepayFx"></span></div>
+    <div class="kpi"><span id="kLastLabel">直近月の返済額</span><b id="kLast">0円</b><span class="kfx" id="kLastFx"></span></div>
+    <div class="kpi main"><span id="kBalanceLabel">現在の貸付残高</span><b id="kBalance">0円</b><span class="kfx" id="kBalanceFx"></span></div>
+    <div class="kpi now"><span id="kLoanLabel">累計 貸付（補填）</span><b id="kLoan">0円</b><span class="kfx" id="kLoanFx"></span></div>
   </section>
 
   <section class="panel pv lv" id="calcPanel">
@@ -396,8 +398,8 @@ details summary{cursor:pointer;font-family:var(--font-display);font-weight:700;f
 
       <div class="result" aria-live="polite">
         <div class="bigline simple-only">
-          <div class="big"><span id="sBorrowLabel">この取引の借入額</span><b id="sBorrow" class="up">0円</b></div>
-          <div class="big"><span id="sPaidLabel">この取引の返済額</span><b id="sPaid" class="down">0円</b><span id="sCum"></span></div>
+          <div class="big"><span id="sBorrowLabel">この取引の借入額</span><b id="sBorrow" class="up">0円</b><span class="kfx" id="sBorrowFx"></span></div>
+          <div class="big"><span id="sPaidLabel">この取引の返済額</span><b id="sPaid" class="down">0円</b><span id="sCum"></span><span class="kfx" id="sPaidFx"></span></div>
         </div>
         <div class="bigline calc-only">
           <div class="big"><span>今月渡す総額</span><b id="rTotal">0円</b></div>
@@ -564,7 +566,7 @@ function calcMonth(e, s, prev, cum){
     const notes = [];
     if (over > 0 && repay >= 0) notes.push(trS(s, agg.loan > 0 ? `支払額のうち ${yen(over)} は返済額に含めていません（計算式「合計返済額」による）。` : `借入額が登録されていないため、この支払 ${yen(over)} は返済額に含めていません。「計算式」で開始時点の借入額か合計借入額の式を設定すると返済として計算されます。`));
     return { simple:true, F:0, R:0, rt:"none", rv:0, repay, net:0, loan:0, extraAuto:0, total:paid, P:0, rewardInPrepay:0, loanInPrepay:0,
-      monthEnd:paid, rewardRemain:0, loanRemain:0, M:0, prev, end, repayTotal:repay, borrow, paid, over, cols, state:{ sums, count, agg }, items:[{ name:UNCLASSIFIED, gross:0, repay, net:0 }], notes };
+      monthEnd:paid, rewardRemain:0, loanRemain:0, M:0, prev, end, repayTotal:repay, borrow, paid, over, cols, state:{ sums, count, agg }, before: st, items:[{ name:UNCLASSIFIED, gross:0, repay, net:0 }], notes };
   }
   const notes = [];
   const F = Math.max(0, hasVal(e.fixed) ? toNum(e.fixed) : toNum(s.defaultFixed));
@@ -708,6 +710,23 @@ function evalAgg(L, s, sums, count){
   v["合計借入額"] = run(L.loanTotal, L.dLoan);
   v["合計返済額"] = run(L.repayTotal, L.dRepay);
   return { loan: v["合計借入額"], repay: v["合計返済額"], balance: run(L.balanceNow, L.dBalance) };
+}
+/* 式と、式に入った数値を文字で返す（帳尻を確かめられるように画面に出す） */
+function fmtN(n){ n = Math.round(n || 0); return n < 0 ? `(−${(-n).toLocaleString("ja-JP")})` : n.toLocaleString("ja-JP"); }
+function explainAgg(L, s, st){
+  const v = { "支払額": st.sums.paid || 0, "件数": st.count };
+  L.defs.items.forEach(x=>{ v[x.name] = st.sums[x.id] || 0; });
+  ledgerVals(L, s, v); v["合計借入額"] = st.agg.loan; v["合計返済額"] = st.agg.repay;
+  const ok = !L.errors.length, nm = x=>LEDGER_VARS.includes(x) ? trS(s, x) : x;
+  const one = (node, dflt, val)=>{ const n = ok && node ? node : dflt; return { fx: exprText(n, nm), sub: exprText(n, x=>fmtN(v[x])), val }; };
+  return { loan: one(L.loanTotal, L.dLoan, st.agg.loan), repay: one(L.repayTotal, L.dRepay, st.agg.repay), balance: one(L.balanceNow, L.dBalance, st.agg.balance) };
+}
+function fxLines(e){ return `式：${e.fx}\n＝ ${e.sub} ＝ ${fmtN(e.val)}`; }
+/* この取引の額＝この取引までの合計 − 前の取引までの合計 */
+function fxDiff(s, key, label, r){
+  const L = ledgerFx(s), a = explainAgg(L, s, r.state)[key], b = explainAgg(L, s, r.before)[key];
+  return trS(s, `${label}（この取引まで）${fmtN(a.val)} − ${label}（前の取引まで）${fmtN(b.val)} ＝ ${fmtN(a.val - b.val)}`) +
+    `\n${trS(s, "この取引まで")}：${a.fx} ＝ ${a.sub}\n${trS(s, "前の取引まで")}：${b.sub}`;
 }
 function ledgerStart(L, s){ return { sums:{ paid:0 }, count:0, agg: evalAgg(L, s, { paid:0 }, 0) }; }
 /* 追加の列（1取引ごと）。own は内訳項目id ごとのこの取引の額と、台帳の値 */
@@ -1437,6 +1456,8 @@ function renderCalc(){
     $("sPaidLabel").textContent = tr("この取引の返済額");
     $("sPaid").textContent = yen(r.repayTotal);
     $("sCum").textContent = tr(`返済後の残高 ${yen(r.end)}`);
+    $("sBorrowFx").textContent = fxDiff(settings, "loan", "合計借入額", r);
+    $("sPaidFx").textContent = fxDiff(settings, "repay", "合計返済額", r);
     $("rSteps").innerHTML = [
       `開始時点の借入額は <b>${yen(start)}</b>${start > 0 ? "" : "（未登録）"}です。この取引より前の返済額の累計は ${yen(before)}、残高は <b>${yen(r.prev)}</b> です。`,
       r.borrow > 0 ? `この取引で借入額が <b class="up">${yen(r.borrow)}</b> 増えます。` : r.borrow < 0 ? `この取引で借入額が ${yen(-r.borrow)} 減ります。` : "",
@@ -1503,8 +1524,12 @@ function renderLedger(){
     $("kLast").textContent = yen(agg.repay);
     $("kLoan").textContent = yen(lastRow ? lastRow.r.repayTotal : 0);
     $("kLoan").title = lastRow ? `${monthLabel(lastRow.e.month)}の取引` : "";
+    const ex = explainAgg(ledgerFx(settings), settings, rows.length ? rows[rows.length-1].r.state : ledgerStart(ledgerFx(settings), settings));
+    $("kBalanceFx").textContent = fxLines(ex.balance); $("kRepayFx").textContent = fxLines(ex.loan); $("kLastFx").textContent = fxLines(ex.repay);
+    $("kLoanFx").textContent = lastRow ? `${monthLabel(lastRow.e.month)}の取引\n` + fxDiff(settings, "repay", "合計返済額", lastRow.r) : "取引がまだありません";
   } else {
     $("kLoan").textContent = yen(sum("loan")); $("kLoan").title = "";
+    ["kBalanceFx","kRepayFx","kLastFx","kLoanFx"].forEach(id=>{ $(id).textContent = ""; });
     $("kRepay").textContent = yen(sum("repayTotal"));
     $("kLastLabel").textContent = lastRow ? `${monthLabel(lastRow.e.month)}の返済額` : "直近月の返済額";
     $("kLast").textContent = yen(lastRow ? lastAmount(lastRow.r) : 0);
