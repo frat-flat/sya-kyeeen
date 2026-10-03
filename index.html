@@ -278,7 +278,7 @@ details summary{cursor:pointer;font-family:var(--font-display);font-weight:700;f
   <nav class="crumb pv" aria-label="プロジェクトの切り替え">
     <button type="button" class="link" id="backBtn">← プロジェクト一覧</button>
     <div class="tabs" id="projTabs" role="tablist">
-      <button type="button" data-v="ledger">台帳</button><button type="button" data-v="basic">基本情報</button><button type="button" data-v="accounts">口座</button><button type="button" data-v="items">内訳項目</button><button type="button" data-v="formulas">計算式</button>
+      <button type="button" data-v="basic">基本情報</button><button type="button" data-v="ledger">台帳</button><button type="button" data-v="accounts">口座</button><button type="button" data-v="items">内訳項目</button><button type="button" data-v="formulas">計算式</button>
     </div>
   </nav>
 
@@ -862,7 +862,7 @@ function showNewProject(){
   $("projForm").reset(); $("projForm").hidden = false; $("pName").focus();
 }
 /* 画面：#p=<プロジェクトID>&v=<ページ>。ページは台帳と、設定の各ページ（基本情報・口座・内訳項目・計算式） */
-const VIEWS = { ledger:"台帳", basic:"基本情報", accounts:"口座", items:"内訳項目", formulas:"計算式" };
+const VIEWS = { basic:"基本情報", ledger:"台帳", accounts:"口座", items:"内訳項目", formulas:"計算式" };
 const VIEW_NOTES = { basic:"誰の・何の・メモ、入力方法、借入額など", accounts:"振込元・振込先に使う口座（すべてのプロジェクトで共通）", items:"1回の支払いを分ける項目と、その定義", formulas:"項目ごとの計算式と定数。構成の式は自動で作られます" };
 let view = "ledger", shownCur = null;
 function openProject(id, v){ location.hash = id ? "#p=" + encodeURIComponent(id) + (v && v !== "ledger" ? "&v=" + v : "") : "#"; }
