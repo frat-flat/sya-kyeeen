@@ -478,7 +478,7 @@ details summary{cursor:pointer;font-family:var(--font-display);font-weight:700;f
           <div class="ferr" id="termErr" hidden></div>
         </fieldset>
         <div class="row">
-          <div class="field"><label for="sStart" id="sStartLabel">開始時点の貸付残高</label><div class="yen"><input id="sStart" inputmode="numeric" placeholder="0"></div><span class="hint" id="sStartHint">ツールを使い始める前からの借金</span></div>
+          <div class="field calc-only"><label for="sStart" id="sStartLabel">開始時点の貸付残高</label><div class="yen"><input id="sStart" inputmode="numeric" placeholder="0"></div><span class="hint" id="sStartHint">ツールを使い始める前からの借金</span></div>
           <div class="field calc-only"><label for="sSurplus">報酬が固定額を上回った月</label><select id="sSurplus"><option value="pay">上回った分も全額支払う</option><option value="repay">上回った分を追加返済に回す</option></select></div>
         </div>
         </div>
@@ -500,6 +500,7 @@ details summary{cursor:pointer;font-family:var(--font-display);font-weight:700;f
         <div class="spage" data-pages="formulas" id="ledgerFxSet" style="display:grid;gap:10px">
           <div class="ptitle">台帳の計算式（取引1件ごと）</div>
           <span class="hint calc-only">台帳の計算式は「返済額を直接入力」方式で使います。「基本情報」で入力方法を切り替えると設定できます。</span>
+          <div class="field simple-only"><label for="lfStart" id="lfStartLabel">開始時点の借入額</label><div class="yen"><input id="lfStart" inputmode="numeric" placeholder="0"></div><span class="hint" id="lfStartHint">任意。最初の取引より前からある借入額です（最初に一度入れておけば十分です）。</span></div>
           <div class="lfx simple-only"><label for="lfBorrow" id="lfBorrowLabel">この取引の借入額</label><input id="lfBorrow" maxlength="200"></div>
           <div class="lfx simple-only"><label for="lfRepay" id="lfRepayLabel">返済額</label><input id="lfRepay" maxlength="200"></div>
           <div class="lfx simple-only"><label for="lfBalance" id="lfBalanceLabel">残高</label><input id="lfBalance" maxlength="200"></div>
@@ -552,7 +553,7 @@ function calcMonth(e, s, prev, cum){
     const v = evalLedger(L, s, e, { paid, prev, prevRepay: cum ? cum.repay : 0, prevPaid: cum ? cum.paid : 0, prevBorrow: cum ? cum.borrow || 0 : 0 });
     const repay = v.repay, end = v.balance, borrow = v.borrow, over = paid - repay;
     const notes = [];
-    if (over > 0) notes.push(trS(s, prev + borrow > 0 || toNum(s.startBalance) > 0 ? `支払額のうち ${yen(over)} は返済額に含めていません（台帳の計算式「返済額」による）。` : `借入額が登録されていないため、この支払 ${yen(over)} は返済額に含めていません。「基本情報」で開始時点の借入額を登録するか、「計算式」で取引ごとの借入額の式を設定すると返済として計算されます。`));
+    if (over > 0) notes.push(trS(s, prev + borrow > 0 || toNum(s.startBalance) > 0 ? `支払額のうち ${yen(over)} は返済額に含めていません（台帳の計算式「返済額」による）。` : `借入額が登録されていないため、この支払 ${yen(over)} は返済額に含めていません。「計算式」で開始時点の借入額を登録するか、取引ごとの借入額の式を設定すると返済として計算されます。`));
     return { simple:true, F:0, R:0, rt:"none", rv:0, repay, net:0, loan:0, extraAuto:0, total:paid, P:0, rewardInPrepay:0, loanInPrepay:0,
       monthEnd:paid, rewardRemain:0, loanRemain:0, M:0, prev, end, repayTotal:repay, borrow, paid, over, cols: v.cols, items:[{ name:UNCLASSIFIED, gross:0, repay, net:0 }], notes };
   }
@@ -1557,7 +1558,7 @@ function renderSettings(){
   $("sFixed").value = fmtInput(settings.defaultFixed);
   $("sRuleType").value = settings.ruleType;
   $("sRuleValue").value = settings.ruleType === "pct" ? settings.ruleValue : fmtInput(settings.ruleValue);
-  $("sStart").value = fmtInput(settings.startBalance);
+  $("sStart").value = fmtInput(settings.startBalance); $("lfStart").value = fmtInput(settings.startBalance);
   $("sSurplus").value = settings.surplusMode;
   $("acctsBox").innerHTML = ""; (settings.accounts || []).forEach(addAcctRow);
   $("itemDefBox").innerHTML = ""; (settings.items || []).forEach(addItemDefRow);
@@ -1607,7 +1608,7 @@ function applyMode(){
   $("kLoanLabel").textContent = sm ? tr("現在の返済額") : "累計 貸付（補填）";
   $("kLoan").classList.toggle("down", sm);
   // 計算式ページの台帳の式まわり
-  [["lfBorrowLabel","この取引の借入額"],["lfRepayLabel","返済額"],["lfBalanceLabel","残高"],["lfHint1","空欄なら初期の式を使います。「この取引の借入額」は、その取引で新たに借りた（増えた）額です（初期は0）。累計借入額・累計返済額は、各取引の額の合計です。"],["addLedgerCol","＋ 列を追加（例：未返済の支払＝支払額 − 返済額）"]].forEach(([id,t])=>{ $(id).textContent = tr(t); });
+  [["lfStartLabel","開始時点の借入額"],["lfStartHint","任意。最初の取引より前からある借入額です（最初に一度入れておけば十分です）。"],["lfBorrowLabel","この取引の借入額"],["lfRepayLabel","返済額"],["lfBalanceLabel","残高"],["lfHint1","空欄なら初期の式を使います。「この取引の借入額」は、その取引で新たに借りた（増えた）額です（初期は0）。累計借入額・累計返済額は、各取引の額の合計です。"],["addLedgerCol","＋ 列を追加（例：未返済の支払＝支払額 − 返済額）"]].forEach(([id,t])=>{ $(id).textContent = tr(t); });
   $("lfHint2").innerHTML = esc(tr("使える名前：支払額（この取引で払った額）・開始時点の借入額・今回の借入額（この取引の借入額）・前回までの借入額・累計借入額・前回残高・前回までの返済額・前回までの支払額・返済額・累計返済額・累計支払額・残高、内訳項目名・定数名、上の追加の列。")) + "<br>" + esc(tr("関数：四捨五入( )・切り捨て( )・切り上げ( )・最小( , )・最大( , )。借入額の式では今回の借入額・累計借入額・返済額・累計返済額・残高を、返済額の式では返済額・累計返済額・残高を使えません（まだ決まっていない値です）。"));
 }
 function renderHeader(){
@@ -1748,7 +1749,7 @@ $("collapseAll").addEventListener("click", ()=>{ expanded.clear(); renderMatrix(
 $("settingsForm").addEventListener("submit", async ev=>{
   ev.preventDefault();
   const s = { name:$("sName").value.trim(), title:$("sTitle").value.trim(), memo:$("sMemo").value.trim(), status:$("sStatus").value, inputMode:$("sMode").value, defaultFixed:toNum($("sFixed").value), ruleType:$("sRuleType").value,
-    ruleValue:toNum($("sRuleValue").value), startBalance:toNum($("sStart").value), surplusMode:$("sSurplus").value,
+    ruleValue:toNum($("sRuleValue").value), startBalance:toNum($($("sMode").value === "simple" ? "lfStart" : "sStart").value), surplusMode:$("sSurplus").value,
     accounts: readAccts(), defaultFrom: $("sFrom").value, defaultTo: $("sTo").value, ...readDefs(), ...readLedgerFx(), terms: readTerms() };
   const termErr = Object.entries(s.terms).filter(([k,v])=>v && (/^[\d.]/.test(v) || /[+\-*/(),\[\]\s]/.test(v) || FUNCS[v])).map(([k,v])=>`言葉「${v}」には数字始まり・記号・空白を使えません。`);
   // 2つの言葉が同じになると、画面でも計算式でもどちらの意味か区別できなくなるので保存しない
