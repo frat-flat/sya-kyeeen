@@ -467,14 +467,14 @@ details summary{cursor:pointer;font-family:var(--font-display);font-weight:700;f
         <fieldset class="simple-only" id="termsSet">
           <legend>表示する言葉（借金の返済以外にも使えるように変更できます）</legend>
           <div class="row">
-            <div class="field"><label for="t_repay">「返済」</label><input id="t_repay" maxlength="10"></div>
-            <div class="field"><label for="t_paid">「支払額」</label><input id="t_paid" maxlength="10"></div>
+            <div class="field"><label for="t_repay">「返済」</label><input id="t_repay" maxlength="10"><span class="hint">合計返済額・現在の返済額・この取引の返済額・累計返済額</span></div>
+            <div class="field"><label for="t_paid">「支払額」</label><input id="t_paid" maxlength="10"><span class="hint">台帳の支払額（この取引で払った額）</span></div>
           </div>
           <div class="row">
-            <div class="field"><label for="t_loan">「借入額」</label><input id="t_loan" maxlength="10"></div>
-            <div class="field"><label for="t_balance">「残高」</label><input id="t_balance" maxlength="10"></div>
+            <div class="field"><label for="t_loan">「借入額」</label><input id="t_loan" maxlength="10"><span class="hint">合計借入額・開始時点の借入額・この取引の借入額</span></div>
+            <div class="field"><label for="t_balance">「残高」（いまの残り）</label><input id="t_balance" maxlength="10"><span class="hint">上部の「現在の◯◯」・台帳の残高の列・前回残高・グラフ</span></div>
           </div>
-          <span class="hint">空欄なら元の言葉のままです。「保存」を押すと画面に反映されます。例：返済→入金、借入額→目標額、残高→残り。台帳の計算式でも、変えた言葉をそのまま使えます。</span>
+          <span class="hint">空欄なら元の言葉のままです。「保存」を押すと画面に反映されます。例：返済→入金、借入額→預り額、残高→現在の借入額（上部は「現在の借入額」になります）。台帳の計算式でも、変えた言葉をそのまま使えます。</span>
           <div class="ferr" id="termErr" hidden></div>
         </fieldset>
         <div class="row">
