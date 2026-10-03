@@ -1769,7 +1769,9 @@ $("entryForm").addEventListener("submit", async ev=>{
     if (editingId && editingId !== m.month) await removeMonth(editingId);
     await persistMonth(m);
     editingId = m.month; flash("toast", isSimple() ? `${monthLabel(m.month)}の取引を保存しました。` : `${monthLabel(m.month)}を保存しました。`);
-  } catch(err){ flash("toast", err && err.code==="quota_exceeded" ? "保存容量の上限です。古い月を削除してから保存してください。" : "保存できませんでした。もう一度お試しください。"); }
+  } catch(err){ flash("toast", err && err.code==="quota_exceeded" ? "保存容量の上限です。古い月を削除してから保存してください。"
+    : err && err.status === 401 ? "ログインの有効期限が切れています。ページを再読み込みして、ログインし直してから保存してください。"
+    : `保存できませんでした（${(err && err.message) || "原因不明のエラー"}）。もう一度お試しください。`); }
   finally { $("saveBtn").disabled = false; updateEditState(); renderLedger(); }
 });
 $("newBtn").addEventListener("click", ()=>{ startNew(); renderLedger(); });
