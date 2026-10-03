@@ -122,7 +122,20 @@ table.matrix th.sub{font-size:.72rem}
 table.matrix td.g0,table.matrix th.g0{border-left:1px solid var(--line)}
 table.matrix td.zero{color:var(--muted)}
 #authPanel{display:none}
-body.locked .wrap>section:not(#authPanel){display:none}
+body.locked .wrap>*:not(header):not(#authPanel){display:none!important}
+body.dash .pv,body:not(.dash) .dv{display:none!important}
+.crumb{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center}
+.crumb select{width:auto;max-width:100%;height:2.4rem}
+table.projs{min-width:760px}
+table.projs tr[data-pid]{cursor:pointer}
+table.ledger.projs td.who{text-align:left;white-space:normal;min-width:200px}
+table.ledger.projs td.who b{display:block;color:var(--ink)}
+table.projs td.who span{font-size:.8rem;color:var(--muted)}
+table.projs tr.done td{opacity:.6}
+.tag{display:inline-block;font-size:.72rem;padding:1px 8px;border-radius:99px;white-space:nowrap}
+.tag.ok{background:var(--soft);color:var(--repay);border:1px solid var(--repay)}
+.tag.todo{background:var(--warn-bg);color:var(--warn-ink)}
+.tag.off{background:var(--soft);color:var(--muted);border:1px solid var(--line)}
 body.locked #authPanel{display:grid}
 .auth{max-width:420px;width:100%;margin:0 auto;gap:14px}
 .who{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;justify-content:flex-end}
@@ -146,7 +159,7 @@ details summary{cursor:pointer;font-family:var(--font-display);font-weight:700;f
   <header class="head">
     <div>
       <h1 id="title">返済・補填台帳</h1>
-      <p class="muted small">毎月の固定支払額を、報酬・返済充当・補填の貸付に振り分けて記録します。</p>
+      <p class="muted small" id="subtitle">誰の・何の返済かをプロジェクトに分けて、毎月の固定支払額を報酬・返済充当・補填の貸付に振り分けて記録します。</p>
     </div>
     <div class="who">
       <span class="store" id="storeBadge">読み込み中…</span>
@@ -166,16 +179,55 @@ details summary{cursor:pointer;font-family:var(--font-display);font-weight:700;f
     </form>
   </section>
 
+  <section class="kpis dv" aria-label="全体の状況">
+    <div class="kpi main"><span>貸付残高の合計</span><b id="dBalance">0円</b></div>
+    <div class="kpi"><span>進行中のプロジェクト</span><b id="dActive">0件</b></div>
+    <div class="kpi"><span id="dTodoLabel">今月が未入力</span><b id="dTodo">0件</b></div>
+    <div class="kpi"><span>累計 返済の合計</span><b id="dRepay">0円</b></div>
+  </section>
+
+  <section class="panel dv" id="dashPanel">
+    <div class="sectionhead">
+      <h2>プロジェクト</h2>
+      <div class="btns"><label class="muted small" style="display:flex;gap:6px;align-items:center"><input type="checkbox" id="showDone" style="width:auto;height:auto">完了も表示</label><button type="button" class="primary" id="newProjBtn">＋ プロジェクトを追加</button></div>
+    </div>
+    <form class="form" id="projForm" hidden autocomplete="off" style="margin-bottom:16px;border:1px solid var(--line);border-radius:8px;padding:14px">
+      <h3 style="font-size:1rem">新しいプロジェクト</h3>
+      <div class="row">
+        <div class="field"><label for="pName">誰の（対象者）</label><input id="pName" maxlength="40" placeholder="例：山田さん" required></div>
+        <div class="field"><label for="pTitle">何の（返済・案件の内容）</label><input id="pTitle" maxlength="60" placeholder="例：車のローン立替"></div>
+      </div>
+      <div class="row">
+        <div class="field"><label for="pFixed">毎月の固定支払額</label><div class="yen"><input id="pFixed" inputmode="numeric" placeholder="400,000"></div></div>
+        <div class="field"><label for="pStart">開始時点の貸付残高</label><div class="yen"><input id="pStart" inputmode="numeric" placeholder="0"></div></div>
+      </div>
+      <div class="row">
+        <div class="field"><label for="pRuleType">返済充当の方式</label><select id="pRuleType"><option value="amt">固定額</option><option value="pct">報酬の割合</option></select></div>
+        <div class="field"><label for="pRuleValue" id="pRuleLabel">毎月の充当額</label><div class="yen" id="pRuleWrap"><input id="pRuleValue" inputmode="decimal" placeholder="100,000"></div></div>
+      </div>
+      <div class="field"><label for="pMemo">メモ</label><input id="pMemo" maxlength="120" placeholder="任意"></div>
+      <div class="btns"><button type="submit" class="primary" id="projSave">作成して開く</button><button type="button" id="projCancel">やめる</button></div>
+      <div class="toast" id="pToast" role="status"></div>
+    </form>
+    <div class="tablewrap" id="projWrap"><table class="ledger projs" id="projTable"></table></div>
+    <div class="empty" id="projEmpty" hidden>まだプロジェクトがありません。「＋ プロジェクトを追加」から、誰の・何の返済かを登録してください。</div>
+  </section>
+
+  <nav class="crumb pv" aria-label="プロジェクトの切り替え">
+    <button type="button" class="link" id="backBtn">← ダッシュボード</button>
+    <select id="projSwitch" aria-label="プロジェクトを切り替え"></select>
+  </nav>
+
   <div class="note" id="importBox" hidden>このブラウザに以前の記録が残っています。<button type="button" class="link" id="importBtn">クラウドに取り込む</button></div>
 
-  <section class="kpis" aria-label="現在の状況">
+  <section class="kpis pv" aria-label="現在の状況">
     <div class="kpi main"><span>現在の貸付残高</span><b id="kBalance">0円</b></div>
     <div class="kpi"><span>累計 貸付（補填）</span><b id="kLoan">0円</b></div>
     <div class="kpi"><span>累計 返済</span><b id="kRepay">0円</b></div>
     <div class="kpi"><span>累計 本人報酬</span><b id="kReward">0円</b></div>
   </section>
 
-  <section class="panel">
+  <section class="panel pv">
     <div class="sectionhead">
       <h2 id="calcTitle">今月の計算</h2>
       <span class="muted small" id="editState">新しい月を入力中</span>
@@ -243,7 +295,7 @@ details summary{cursor:pointer;font-family:var(--font-display);font-weight:700;f
     </div>
   </section>
 
-  <section class="panel">
+  <section class="panel pv">
     <div class="sectionhead">
       <h2>内訳マトリクス</h2>
       <div class="btns"><button type="button" class="link" id="expandAll">すべて展開</button><button type="button" class="link" id="collapseAll">すべて閉じる</button></div>
@@ -252,7 +304,7 @@ details summary{cursor:pointer;font-family:var(--font-display);font-weight:700;f
     <div class="tablewrap"><table class="ledger matrix" id="matrix"></table></div>
   </section>
 
-  <section class="panel">
+  <section class="panel pv">
     <div class="sectionhead">
       <h2>振込履歴</h2>
       <div class="btns"><button type="button" id="copyTrBtn">履歴をコピー</button></div>
@@ -261,12 +313,12 @@ details summary{cursor:pointer;font-family:var(--font-display);font-weight:700;f
     <div class="toast" id="hToast" role="status"></div>
   </section>
 
-  <section class="panel">
+  <section class="panel pv">
     <div class="sectionhead"><h2>貸付残高の推移</h2><span class="muted small" id="chartNote"></span></div>
     <div class="chartbox" id="chart"></div>
   </section>
 
-  <section class="panel">
+  <section class="panel pv">
     <div class="sectionhead">
       <h2>月次台帳</h2>
       <div class="btns"><button type="button" id="csvBtn">CSVで保存</button><button type="button" id="copyBtn">表をコピー</button></div>
@@ -275,14 +327,19 @@ details summary{cursor:pointer;font-family:var(--font-display);font-weight:700;f
     <p class="muted small" style="margin:8px 0 0">行をクリックすると上の計算欄で編集できます。</p>
   </section>
 
-  <section class="panel">
+  <section class="panel pv">
     <details id="settingsBox">
-      <summary>基本設定</summary>
+      <summary>このプロジェクトの設定</summary>
       <form class="form" id="settingsForm" style="margin-top:14px" autocomplete="off">
         <div class="row">
-          <div class="field"><label for="sName">対象者の名前</label><input id="sName" maxlength="40" placeholder="例：山田さん"></div>
-          <div class="field"><label for="sFixed">毎月の固定支払額</label><div class="yen"><input id="sFixed" inputmode="numeric"></div></div>
+          <div class="field"><label for="sName">誰の（対象者）</label><input id="sName" maxlength="40" placeholder="例：山田さん"></div>
+          <div class="field"><label for="sTitle">何の（返済・案件の内容）</label><input id="sTitle" maxlength="60" placeholder="例：車のローン立替"></div>
         </div>
+        <div class="row">
+          <div class="field"><label for="sFixed">毎月の固定支払額</label><div class="yen"><input id="sFixed" inputmode="numeric"></div></div>
+          <div class="field"><label for="sStatus">状態</label><select id="sStatus"><option value="active">進行中</option><option value="done">完了</option></select></div>
+        </div>
+        <div class="field"><label for="sMemo">メモ</label><input id="sMemo" maxlength="120" placeholder="任意"></div>
         <div class="row">
           <div class="field"><label for="sRuleType">返済充当の方式</label><select id="sRuleType"><option value="amt">固定額（例：毎月10万円）</option><option value="pct">報酬の割合（例：50%）</option></select></div>
           <div class="field"><label for="sRuleValue" id="sRuleLabel">充当額</label><div class="yen" id="sRuleWrap"><input id="sRuleValue" inputmode="decimal"></div></div>
@@ -295,19 +352,20 @@ details summary{cursor:pointer;font-family:var(--font-display);font-weight:700;f
           <legend>口座の登録</legend>
           <div class="accts" id="acctsBox"></div>
           <div><button type="button" class="link" id="addAcct">＋ 口座を追加</button></div>
-          <span class="hint">「吉田のA銀行」「山田の生活費口座」のように表示されます。</span>
+          <span class="hint">「吉田のA銀行」「山田の生活費口座」のように表示されます。口座はすべてのプロジェクトで共通です。</span>
           <div class="row">
             <div class="field"><label for="sFrom">いつもの振込元</label><select id="sFrom"></select></div>
             <div class="field"><label for="sTo">いつもの振込先</label><select id="sTo"></select></div>
           </div>
         </fieldset>
-        <div class="btns"><button type="submit" class="primary">設定を保存</button></div>
+        <div class="btns"><button type="submit" class="primary">設定を保存</button><button type="button" class="danger" id="projDel">このプロジェクトを削除</button></div>
+        <div class="confirm" id="projDelConfirm" hidden>このプロジェクトと、その月次記録をすべて削除します。元に戻せません。<button type="button" class="danger" id="projDelYes">削除する</button><button type="button" id="projDelNo">やめる</button></div>
         <div class="toast" id="sToast" role="status"></div>
       </form>
     </details>
   </section>
 
-  <section class="panel small muted">
+  <section class="panel small muted pv">
     <h2 style="font-size:1rem;color:var(--ink);margin-bottom:6px">計算のしくみ</h2>
     <p style="margin:0">報酬のうち充当ルール分を返済に回し、残りを本人報酬として支払います。本人報酬が固定支払額に届かない差額は、その月に貸し付けます。このため、報酬が固定額を下回る月は、返済充当の額に関わらず残高は「固定額 − 報酬額」だけ増えます（充当した分を同じ月に貸し戻す形になるため）。先払いは、その月に渡す総額の一部を前もって渡したものとして扱い、月末の振込額から差し引きます。</p>
   </section>
@@ -320,7 +378,7 @@ const SUPABASE_URL = "https://lcfsxvrlkeijygkellsz.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_a4jxgr5prKw4tSUHC4lGAg_ODTg8wtI";
 
 /* ---------- 計算ロジック ---------- */
-const DEFAULT_SETTINGS = { name:"", defaultFixed:400000, ruleType:"amt", ruleValue:100000, startBalance:0, surplusMode:"pay", accounts:[], defaultFrom:"", defaultTo:"" };
+const DEFAULT_SETTINGS = { name:"", title:"", memo:"", status:"active", defaultFixed:400000, ruleType:"amt", ruleValue:100000, startBalance:0, surplusMode:"pay", accounts:[], defaultFrom:"", defaultTo:"" };
 
 function toNum(v){
   if (v === null || v === undefined) return 0;
@@ -419,43 +477,138 @@ function ruleText(rt, rv){ return rt === "pct" ? `報酬の${rv}%` : rt === "amt
 const $ = id => document.getElementById(id);
 function esc(s){ return String(s ?? "").replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
 
-/* ---------- 状態と保存先 ---------- */
+/* ---------- 状態と保存先 ----------
+   meta: 全体の設定（口座とプロジェクト一覧）。allMonths: 全プロジェクトの月次記録（各行に project）。
+   settings と months は、開いているプロジェクトの分だけを切り出したもの（画面の描画はこちらを使う）。 */
+const PROJECT_KEYS = ["id","name","title","memo","status","defaultFixed","ruleType","ruleValue","startBalance","surplusMode","defaultFrom","defaultTo","createdAt"];
+const LEGACY_ID = "main";   // プロジェクト機能より前の記録はこのプロジェクトに入る
+let meta = { accounts:[], projects:[] };
+let allMonths = [];
+let cur = null;           // 開いているプロジェクトのID（null ならダッシュボード）
 let settings = { ...DEFAULT_SETTINGS };
-let months = [];          // [{month, fixed, reward, ruleType, ruleValue, prepay, prepayReward, manualRepay, memo}]
+let months = [];          // [{month, project, fixed, reward, ruleType, ruleValue, prepay, prepayReward, manualRepay, memo}]
 let editingId = null;     // 編集中の月（YYYY-MM）
 let store = { mode:"local" };
 const LS_KEY = "repayment-ledger-v1";
 
+function pick(o, keys){ const r = {}; keys.forEach(k=>{ if (o[k] !== undefined) r[k] = o[k]; }); return r; }
+function projOf(id){ return meta.projects.find(p=>p.id===id); }
+function pidOf(m){ return m.project || LEGACY_ID; }
+function newId(){ return "p" + Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
+function projLabel(p){ return [p.name, p.title].filter(Boolean).join("の") || "名前のないプロジェクト"; }
+function projSettings(p){ return { ...DEFAULT_SETTINGS, ...p, accounts: meta.accounts || [] }; }
+function normalizeMeta(raw){
+  raw = raw || {};
+  const m = { accounts: Array.isArray(raw.accounts) ? raw.accounts : [], projects: Array.isArray(raw.projects) ? raw.projects.slice() : [] };
+  const hasLegacy = !Array.isArray(raw.projects) && Object.keys(raw).some(k=>k !== "accounts");
+  const need = new Set(allMonths.map(pidOf)); if (hasLegacy) need.add(LEGACY_ID);
+  need.forEach(id=>{ if (!m.projects.some(p=>p.id===id))
+    m.projects.push({ ...pick({ ...DEFAULT_SETTINGS, ...(id===LEGACY_ID ? raw : {}) }, PROJECT_KEYS), id, createdAt: 0 }); });
+  meta = m;
+}
+function metaForSave(m){ return { accounts: m.accounts, projects: m.projects }; }
+function applyView(){
+  const p = projOf(cur);
+  settings = p ? projSettings(p) : { ...DEFAULT_SETTINGS, accounts: meta.accounts || [] };
+  months = allMonths.filter(m=>pidOf(m)===cur);
+}
+function monthDocId(pid, month){ return pid === LEGACY_ID ? month : `${pid}_${month}`; }
+
 function loadLocal(){
   try { const raw = localStorage.getItem(LS_KEY); if (!raw) return; const d = JSON.parse(raw);
-    if (d.settings) settings = { ...DEFAULT_SETTINGS, ...d.settings }; if (Array.isArray(d.months)) months = d.months; } catch(_){}
+    if (Array.isArray(d.months)) allMonths = d.months; normalizeMeta(d.settings); } catch(_){}
 }
-function saveLocal(){ try { localStorage.setItem(LS_KEY, JSON.stringify({ settings, months })); } catch(_){} }
+function saveLocal(){ try { localStorage.setItem(LS_KEY, JSON.stringify({ settings: metaForSave(meta), months: allMonths })); } catch(_){} }
+function afterChange(){ applyView(); if (cur) renderAll(); renderDash(); }
 
 async function sbCheck(res){ if (res.error) throw res.error; return res.data; }
 async function persistMonth(m){
-  if (store.mode === "db"){ await store.db.doc("months/" + m.month).set(m); }
-  else if (store.mode === "supabase"){
-    await sbCheck(await store.sb.from("ledger_months").upsert({ user_id: store.uid, month: m.month, data: m, updated_at: new Date().toISOString() }, { onConflict: "user_id,month" }));
-    months = months.filter(x=>x.month!==m.month).concat([m]); renderAll();
-  }
-  else { months = months.filter(x=>x.month!==m.month).concat([m]); saveLocal(); renderAll(); }
+  m = { ...m, project: cur };
+  if (store.mode === "db"){ await store.db.doc("months/" + monthDocId(cur, m.month)).set(m); return; }
+  if (store.mode === "supabase")
+    await sbCheck(await store.sb.from("ledger_months").upsert({ user_id: store.uid, project_id: cur, month: m.month, data: m, updated_at: new Date().toISOString() }, { onConflict: "user_id,project_id,month" }));
+  allMonths = allMonths.filter(x=>!(pidOf(x)===cur && x.month===m.month)).concat([m]);
+  if (store.mode === "local") saveLocal();
+  afterChange();
 }
 async function removeMonth(id){
-  if (store.mode === "db"){ await store.db.doc("months/" + id).delete(); }
-  else if (store.mode === "supabase"){
-    await sbCheck(await store.sb.from("ledger_months").delete().eq("user_id", store.uid).eq("month", id));
-    months = months.filter(x=>x.month!==id); renderAll();
-  }
-  else { months = months.filter(x=>x.month!==id); saveLocal(); renderAll(); }
+  if (store.mode === "db"){ await store.db.doc("months/" + monthDocId(cur, id)).delete(); return; }
+  if (store.mode === "supabase")
+    await sbCheck(await store.sb.from("ledger_months").delete().eq("user_id", store.uid).eq("project_id", cur).eq("month", id));
+  allMonths = allMonths.filter(x=>!(pidOf(x)===cur && x.month===id));
+  if (store.mode === "local") saveLocal();
+  afterChange();
+}
+async function persistMeta(m){
+  const data = metaForSave(m);
+  if (store.mode === "db"){ await store.db.doc("config/settings").set(data); return; }
+  if (store.mode === "supabase")
+    await sbCheck(await store.sb.from("ledger_settings").upsert({ user_id: store.uid, data, updated_at: new Date().toISOString() }, { onConflict: "user_id" }));
+  meta = m;
+  if (store.mode === "local") saveLocal();
+  afterChange();
 }
 async function persistSettings(s){
-  if (store.mode === "db"){ await store.db.doc("config/settings").set(s); }
-  else if (store.mode === "supabase"){
-    await sbCheck(await store.sb.from("ledger_settings").upsert({ user_id: store.uid, data: s, updated_at: new Date().toISOString() }, { onConflict: "user_id" }));
-    settings = { ...DEFAULT_SETTINGS, ...s }; renderSettings(); renderAll();
-  }
-  else { settings = s; saveLocal(); renderAll(); }
+  await persistMeta({ accounts: s.accounts, projects: meta.projects.map(p=>p.id===cur ? { ...p, ...pick(s, PROJECT_KEYS), id: p.id } : p) });
+  renderSettings();
+}
+async function removeProject(id){
+  const list = allMonths.filter(m=>pidOf(m)===id);
+  if (store.mode === "db") await Promise.all(list.map(m=>store.db.doc("months/" + monthDocId(id, m.month)).delete()));
+  else if (store.mode === "supabase") await sbCheck(await store.sb.from("ledger_months").delete().eq("user_id", store.uid).eq("project_id", id));
+  if (store.mode !== "db") allMonths = allMonths.filter(m=>pidOf(m)!==id);
+  await persistMeta({ accounts: meta.accounts, projects: meta.projects.filter(p=>p.id!==id) });
+}
+
+/* ---------- ダッシュボードと画面の切り替え ---------- */
+function ymNow(){ const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`; }
+function projSummary(p){
+  const s = projSettings(p), ms = allMonths.filter(m=>pidOf(m)===p.id);
+  const rows = buildLedger(ms, s);
+  const sum = k => rows.reduce((a,x)=>a+x.r[k],0);
+  return { p, count: rows.length, last: rows.length ? rows[rows.length-1].e.month : "", balance: rows.length ? rows[rows.length-1].r.end : toNum(s.startBalance),
+    repay: sum("repayTotal"), fixed: toNum(s.defaultFixed), hasNow: ms.some(m=>m.month===ymNow()), done: p.status === "done" };
+}
+function renderDash(){
+  const all = meta.projects.map(projSummary).sort((a,b)=>(a.done-b.done) || (b.p.createdAt||0)-(a.p.createdAt||0));
+  const active = all.filter(x=>!x.done);
+  const shown = $("showDone").checked ? all : active;
+  $("dBalance").textContent = yen(all.reduce((a,x)=>a+x.balance,0));
+  $("dActive").textContent = `${active.length}件`;
+  $("dTodoLabel").textContent = `${monthLabel(ymNow())}が未入力`;
+  $("dTodo").textContent = `${active.filter(x=>!x.hasNow).length}件`;
+  $("dRepay").textContent = yen(all.reduce((a,x)=>a+x.repay,0));
+  $("projEmpty").hidden = all.length > 0;
+  $("projWrap").hidden = all.length === 0;
+  $("projTable").innerHTML = `<thead><tr><th>誰の・何の</th><th>状態</th><th>今月</th><th>毎月の固定額</th><th>記録</th><th>最終入力月</th><th>貸付残高</th><th>累計返済</th></tr></thead><tbody>` +
+    (shown.length ? shown.map(x=>`<tr data-pid="${esc(x.p.id)}" tabindex="0" class="${x.done?"done":""}">
+      <td class="who"><b>${esc(x.p.name || "（対象者未設定）")}</b><span>${esc(x.p.title || "内容未設定")}${x.p.memo ? "・" + esc(x.p.memo) : ""}</span></td>
+      <td>${x.done ? '<span class="tag off">完了</span>' : '<span class="tag ok">進行中</span>'}</td>
+      <td>${x.done ? "—" : x.hasNow ? '<span class="tag ok">入力済み</span>' : '<span class="tag todo">未入力</span>'}</td>
+      <td>${yen(x.fixed)}</td><td>${x.count}か月</td><td>${x.last ? monthLabel(x.last) : "—"}</td>
+      <td class="bal up">${yen(x.balance)}</td><td class="down">${yen(x.repay)}</td></tr>`).join("")
+      : `<tr><td colspan="8" class="empty">進行中のプロジェクトはありません。「完了も表示」で完了したものを確認できます。</td></tr>`) + "</tbody>";
+  const sw = $("projSwitch");
+  sw.innerHTML = all.map(x=>`<option value="${esc(x.p.id)}">${esc(projLabel(x.p))}${x.done?"（完了）":""}</option>`).join("");
+  if (cur) sw.value = cur;
+}
+function openProject(id){ location.hash = id ? "#p=" + encodeURIComponent(id) : "#"; }
+function route(){
+  const m = location.hash.match(/^#p=(.+)$/);
+  const id = m ? decodeURIComponent(m[1]) : null;
+  cur = id && projOf(id) ? id : null;
+  document.body.classList.toggle("dash", !cur);
+  applyView(); renderDash();
+  if (cur){ editingId = null; renderSettings(); startNew(); renderAll(); }
+  else { $("title").textContent = "返済・補填台帳"; document.title = "返済・補填台帳"; }
+  window.scrollTo(0, 0);
+}
+/* 保存先から読み直したとき：開いている画面を保ったまま描画し直す */
+function refreshView(first){
+  if (cur && !projOf(cur)){ openProject(null); route(); return; }
+  if (first){ route(); return; }
+  applyView(); renderDash();
+  if (cur){ renderSettings(); renderAll(); }
 }
 
 /* ---------- 入力フォーム ---------- */
@@ -761,6 +914,10 @@ function niceMax(v){ const p = Math.pow(10, Math.floor(Math.log10(v))); for (con
 
 function renderSettings(){
   $("sName").value = settings.name || "";
+  $("sTitle").value = settings.title || "";
+  $("sMemo").value = settings.memo || "";
+  $("sStatus").value = settings.status === "done" ? "done" : "active";
+  $("projDelConfirm").hidden = true;
   $("sFixed").value = fmtInput(settings.defaultFixed);
   $("sRuleType").value = settings.ruleType;
   $("sRuleValue").value = settings.ruleType === "pct" ? settings.ruleValue : fmtInput(settings.ruleValue);
@@ -776,7 +933,9 @@ function syncSettingsRule(){
   $("sRuleLabel").textContent = pct ? "報酬に対する割合" : "毎月の充当額";
 }
 function renderHeader(){
-  $("title").textContent = settings.name ? `${settings.name}の返済・補填台帳` : "返済・補填台帳";
+  const p = projOf(cur);
+  $("title").textContent = p ? projLabel(p) : "返済・補填台帳";
+  document.title = p ? `${projLabel(p)}｜返済・補填台帳` : "返済・補填台帳";
   $("fFixed").placeholder = fmtInput(settings.defaultFixed);
   $("fixedHint").textContent = `空欄なら設定値（${yen(settings.defaultFixed)}）`;
 }
@@ -898,10 +1057,53 @@ $("expandAll").addEventListener("click", ()=>{ ["total","net","loan","repay","gr
 $("collapseAll").addEventListener("click", ()=>{ expanded.clear(); renderMatrix(); });
 $("settingsForm").addEventListener("submit", async ev=>{
   ev.preventDefault();
-  const s = { name:$("sName").value.trim(), defaultFixed:toNum($("sFixed").value), ruleType:$("sRuleType").value,
+  const s = { name:$("sName").value.trim(), title:$("sTitle").value.trim(), memo:$("sMemo").value.trim(), status:$("sStatus").value, defaultFixed:toNum($("sFixed").value), ruleType:$("sRuleType").value,
     ruleValue:toNum($("sRuleValue").value), startBalance:toNum($("sStart").value), surplusMode:$("sSurplus").value,
     accounts: readAccts(), defaultFrom: $("sFrom").value, defaultTo: $("sTo").value };
   try { await persistSettings(s); flash("sToast","設定を保存しました。"); } catch(_){ flash("sToast","保存できませんでした。"); }
+});
+
+$("showDone").addEventListener("change", renderDash);
+$("projTable").addEventListener("click", e=>{ const tr = e.target.closest("tr[data-pid]"); if (tr) openProject(tr.dataset.pid); });
+$("projTable").addEventListener("keydown", e=>{ if (e.key==="Enter"){ const tr = e.target.closest("tr[data-pid]"); if (tr) openProject(tr.dataset.pid); } });
+$("backBtn").addEventListener("click", ()=>openProject(null));
+$("projSwitch").addEventListener("change", e=>openProject(e.target.value));
+window.addEventListener("hashchange", route);
+function syncProjRule(){
+  const pct = $("pRuleType").value === "pct";
+  $("pRuleWrap").classList.toggle("pct", pct);
+  $("pRuleLabel").textContent = pct ? "報酬に対する割合" : "毎月の充当額";
+  $("pRuleValue").placeholder = pct ? "50" : "100,000";
+}
+$("pRuleType").addEventListener("change", syncProjRule);
+$("newProjBtn").addEventListener("click", ()=>{ $("projForm").reset(); syncProjRule(); $("projForm").hidden = false; $("pName").focus(); });
+$("projCancel").addEventListener("click", ()=>{ $("projForm").hidden = true; });
+$("projForm").addEventListener("submit", async ev=>{
+  ev.preventDefault();
+  const pct = $("pRuleType").value === "pct";
+  const p = { ...pick(DEFAULT_SETTINGS, PROJECT_KEYS), id: newId(), createdAt: Date.now(),
+    name: $("pName").value.trim(), title: $("pTitle").value.trim(), memo: $("pMemo").value.trim(),
+    defaultFixed: hasVal($("pFixed").value) ? toNum($("pFixed").value) : DEFAULT_SETTINGS.defaultFixed,
+    startBalance: toNum($("pStart").value), ruleType: $("pRuleType").value,
+    ruleValue: hasVal($("pRuleValue").value) ? toNum($("pRuleValue").value) : (pct ? 50 : DEFAULT_SETTINGS.ruleValue),
+    defaultFrom: "", defaultTo: "" };
+  $("projSave").disabled = true;
+  try {
+    await persistMeta({ accounts: meta.accounts, projects: meta.projects.concat([p]) });
+    $("projForm").hidden = true;
+    if (projOf(p.id)) openProject(p.id); else pendingOpen = p.id;
+  } catch(_){ flash("pToast","作成できませんでした。もう一度お試しください。"); }
+  finally { $("projSave").disabled = false; }
+});
+let pendingOpen = null;   // claude.ai 上では保存の反映を待ってから開く
+$("projDel").addEventListener("click", ()=>{ $("projDelConfirm").hidden = false; });
+$("projDelNo").addEventListener("click", ()=>{ $("projDelConfirm").hidden = true; });
+$("projDelYes").addEventListener("click", async ()=>{
+  const id = cur; if (!id) return;
+  $("projDelYes").disabled = true;
+  try { await removeProject(id); openProject(null); }
+  catch(_){ flash("sToast","削除できませんでした。"); }
+  finally { $("projDelYes").disabled = false; }
 });
 
 function csvText(){
@@ -918,23 +1120,23 @@ $("csvBtn").hidden = true;
 
 /* ---------- 起動 ---------- */
 loadLocal();
-renderSettings(); startNew(); renderAll();
+route();
 $("storeBadge").textContent = "このブラウザに保存";
 const inClaude = !!(window.claude && typeof window.claude.use === "function");
-const localSnapshot = { settings: { ...settings }, months: months.slice() };
+const localSnapshot = { settings: metaForSave(meta), months: allMonths.slice() };
 
 /* Supabase（claude.ai の外で開いたとき） */
 async function loadFromSupabase(){
   const sb = store.sb;
   const [st, ms] = await Promise.all([
     sb.from("ledger_settings").select("data").eq("user_id", store.uid).maybeSingle(),
-    sb.from("ledger_months").select("month,data").eq("user_id", store.uid)
+    sb.from("ledger_months").select("project_id,month,data").eq("user_id", store.uid)
   ]);
   if (st.error) throw st.error; if (ms.error) throw ms.error;
-  settings = { ...DEFAULT_SETTINGS, ...(st.data ? st.data.data : {}) };
-  months = (ms.data || []).map(r=>({ ...r.data, month: r.month }));
-  editingId = null; renderSettings(); startNew(); renderAll();
-  $("importBox").hidden = !(months.length === 0 && localSnapshot.months.length > 0);
+  allMonths = (ms.data || []).map(r=>({ ...r.data, month: r.month, project: r.project_id }));
+  normalizeMeta(st.data ? st.data.data : {});
+  refreshView(true);
+  $("importBox").hidden = !(allMonths.length === 0 && localSnapshot.months.length > 0);
 }
 async function onSession(session){
   if (!session){
@@ -984,7 +1186,7 @@ if (!inClaude && SUPABASE_URL && SUPABASE_ANON_KEY && window.supabase){
     try {
       const uid = store.uid, sb = store.sb;
       await sbCheck(await sb.from("ledger_settings").upsert({ user_id: uid, data: localSnapshot.settings }, { onConflict:"user_id" }));
-      await sbCheck(await sb.from("ledger_months").upsert(localSnapshot.months.map(m=>({ user_id: uid, month: m.month, data: m })), { onConflict:"user_id,month" }));
+      if (localSnapshot.months.length) await sbCheck(await sb.from("ledger_months").upsert(localSnapshot.months.map(m=>({ user_id: uid, project_id: pidOf(m), month: m.month, data: { ...m, project: pidOf(m) } })), { onConflict:"user_id,project_id,month" }));
       await loadFromSupabase(); flash("toast", `${localSnapshot.months.length}か月分を取り込みました。`);
     } catch(_){ $("importBtn").disabled = false; flash("toast", "取り込めませんでした。もう一度お試しください。"); }
   });
@@ -994,7 +1196,7 @@ if (!inClaude){
   $("csvBtn").addEventListener("click", ()=>{
     const blob = new Blob(["\uFEFF" + csvText()], { type:"text/csv" });
     const a = document.createElement("a"); a.href = URL.createObjectURL(blob);
-    a.download = `返済台帳_${new Date().toISOString().slice(0,10)}.csv`; a.click();
+    a.download = `返済台帳_${(projOf(cur) ? projLabel(projOf(cur)) + "_" : "")}${new Date().toISOString().slice(0,10)}.csv`; a.click();
     setTimeout(()=>URL.revokeObjectURL(a.href), 1000);
   });
 }
@@ -1006,22 +1208,23 @@ if (!inClaude){
   if (downloads){
     $("csvBtn").hidden = false;
     $("csvBtn").addEventListener("click", async ()=>{
-      try { await downloads.save({ filename:`返済台帳_${new Date().toISOString().slice(0,10)}.csv`, data:"\uFEFF"+csvText() }); }
+      try { await downloads.save({ filename:`返済台帳_${(projOf(cur) ? projLabel(projOf(cur)) + "_" : "")}${new Date().toISOString().slice(0,10)}.csv`, data:"\uFEFF"+csvText() }); }
       catch(err){ if (err && err.code === "unavailable") $("csvBtn").hidden = true; }
     });
   }
   if (!db) return;
   store = { mode:"db", db };
   $("storeBadge").textContent = "クラウドに保存（どの端末からも同じ台帳）";
-  let firstMonths = true;
-  db.doc("config/settings").onSnapshot(snap=>{
-    settings = { ...DEFAULT_SETTINGS, ...(snap.exists ? snap.data() : {}) };
-    renderSettings(); renderAll();
-  }, ()=>{});
+  let rawMeta = {}, gotMeta = false, gotMonths = false, first = true;
+  const sync = ()=>{
+    if (!gotMeta || !gotMonths) return;
+    normalizeMeta(rawMeta); refreshView(first); first = false;
+    if (pendingOpen && projOf(pendingOpen)){ const id = pendingOpen; pendingOpen = null; openProject(id); }
+  };
+  db.doc("config/settings").onSnapshot(snap=>{ rawMeta = snap.exists ? snap.data() : {}; gotMeta = true; sync(); }, ()=>{});
   db.collection("months").onSnapshot(snap=>{
-    months = snap.docs.map(d=>({ ...d.data(), month: d.id }));
-    if (firstMonths){ firstMonths = false; if (!editingId) startNew(); }
-    renderAll();
+    allMonths = snap.docs.map(d=>{ const x = d.data(); return { ...x, month: x.month || d.id, project: x.project || LEGACY_ID }; });
+    gotMonths = true; sync();
   }, ()=>{ $("storeBadge").textContent = "接続が切れました。再読み込みしてください"; });
 })();
 </script>
