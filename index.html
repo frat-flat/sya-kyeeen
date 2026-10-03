@@ -211,11 +211,15 @@ body.sorting,body.sorting *{cursor:grabbing!important;user-select:none}
 .ferr{background:var(--warn-bg);color:var(--warn-ink);border-radius:6px;padding:8px 12px;font-size:.85rem}
 .parts{display:grid;grid-template-columns:minmax(0,1fr);gap:8px;border-top:1px dashed var(--line);padding-top:10px}
 .parts .field label .fx{font-size:.7rem;color:var(--accent);margin-left:4px}
-.lines{display:grid;gap:6px;border-top:1px dashed var(--line);padding-top:10px}
-.line{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr) minmax(0,.6fr) minmax(0,1.2fr) auto;gap:6px;align-items:center}
+.lines{display:grid;gap:8px;border-top:1px dashed var(--line);padding-top:10px}
+.dgroup{display:grid;gap:6px;border:1px solid var(--line);border-radius:8px;padding:10px;background:var(--paper)}
+.dgroup .dhead{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px;align-items:center}
+.dgroup .dhead input{font-weight:700}
+.dgroup .dsum{font-size:.78rem;color:var(--muted)}
+.line{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,.7fr) auto;gap:6px;align-items:center;padding-top:6px;border-top:1px dotted var(--line)}
+.line input.ln{grid-column:1/-1} .line select{grid-column:1/3}
 .line .sub{grid-column:1/-1;font-size:.75rem;color:var(--muted);margin-top:-2px}
-.lineshead{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr) minmax(0,.6fr) minmax(0,1.2fr) auto;gap:6px;font-size:.72rem;color:var(--muted)}
-@media (max-width:640px){ .line,.lineshead{grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto} .lineshead{display:none} .line input.ln{grid-column:1/-1} .line select{grid-column:1/3} }
+.lineshead{display:none}
 .ptitle{grid-column:1/-1;font-size:.78rem;font-weight:700;color:var(--muted)}
 @media (max-width:640px){ .defhead:not(.const){display:none} .def:not(.const){grid-template-columns:3.2em minmax(0,1fr) auto} .def:not(.const)>input.f,.def:not(.const)>input.d{grid-column:2/-1} .def:not(.const)>button.del{grid-row:1;grid-column:3} }
 body:not(.v-ledger) .lv,body.v-ledger .sv{display:none!important}
@@ -1235,7 +1239,7 @@ function addTransferRow(t){
       <div class="field"><label for="trAmt${i}">金額</label><div class="yen"><input id="trAmt${i}" inputmode="numeric" placeholder="0"></div></div>
     </div>
     <div class="parts" hidden></div>
-    <div class="lines" hidden><div class="ptitle">明細（案件ごと：単価 × 件数 を選んだ内訳項目に入れます）</div><div class="lineshead"><span>案件名</span><span>単価</span><span>件数</span><span>入れる内訳項目</span><span></span></div><div class="linebox"></div><div><button type="button" class="link addline">＋ 明細を追加</button></div></div>
+    <div class="lines" hidden><div class="ptitle">明細（タイトルごとに案件を入れ、単価 × 件数 を選んだ内訳項目に入れます）</div><div class="groupbox"></div><div><button type="button" class="link addgroup">＋ 明細を追加</button></div></div>
     <div class="row">
       <div class="field"><label for="trFrom${i}">振込元</label><select id="trFrom${i}"></select></div>
       <div class="field"><label for="trTo${i}">振込先</label><select id="trTo${i}"></select></div>
@@ -1275,26 +1279,41 @@ function buildParts(row, t){
   const manual = c.items.filter(x=>!x.node), lb = row.querySelector(".lines");
   lb.hidden = !manual.length;
   lb._items = manual;
-  lb.querySelector(".addline").onclick = ()=>{ addLine(row, {}).querySelector("input").focus(); };
-  (t.lines || []).forEach(l=>addLine(row, l));
+  lb.querySelector(".addgroup").onclick = ()=>{ addGroup(row, { lines:[{}] }).querySelector("input").focus(); };
+  // 以前の形（タイトルなしの明細の並び）は、タイトル空欄の明細1つとして読む
+  const groups = Array.isArray(t.details) ? t.details : (t.lines && t.lines.length ? [{ title:"", lines: t.lines }] : []);
+  groups.forEach(g=>addGroup(row, g));
   recalcRow(row);
 }
 let lineSeq = 0;
-function addLine(row, l){
+function addGroup(row, g){
+  const lb = row.querySelector(".lines"), i = lineSeq++, el = document.createElement("div"); el.className = "dgroup";
+  el.innerHTML = `<div class="dhead"><input class="dt" id="dgTitle${i}" maxlength="40" placeholder="明細のタイトル（例：10月分 紹介報酬）" aria-label="明細のタイトル"><button type="button" class="link dgdel">明細を削除</button></div>
+    <div class="lineshead"><span>案件名</span><span>単価</span><span>件数</span><span>入れる内訳項目</span><span></span></div><div class="linebox"></div>
+    <div><button type="button" class="link addline">＋ 案件を追加</button> <span class="dsum"></span></div>`;
+  el.querySelector(".dt").value = g.title || "";
+  el.querySelector(".dgdel").addEventListener("click", ()=>{ el.remove(); recalcRow(row); renderCalc(); });
+  el.querySelector(".addline").addEventListener("click", ()=>{ addLine(row, el, {}).querySelector("input").focus(); });
+  lb.querySelector(".groupbox").appendChild(el);
+  (g.lines || []).forEach(l=>addLine(row, el, l));
+  return el;
+}
+function addLine(row, group, l){
   const lb = row.querySelector(".lines"), i = lineSeq++, el = document.createElement("div"); el.className = "line";
   el.innerHTML = `<input class="ln" id="lnName${i}" maxlength="40" placeholder="案件名" aria-label="案件名"><div class="yen"><input class="lp" id="lnPrice${i}" inputmode="numeric" placeholder="単価" aria-label="単価"></div>
-    <input class="lq" id="lnQty${i}" inputmode="decimal" placeholder="件数" aria-label="件数"><select class="li" aria-label="入れる内訳項目"><option value="">入れる項目を選ぶ</option>${lb._items.map(x=>`<option value="${esc(x.id)}">${x.letter} ${esc(x.name)}</option>`).join("")}</select>
-    <button type="button" class="link" aria-label="この明細を削除">削除</button><span class="sub"></span>`;
+    <input class="lq" id="lnQty${i}" inputmode="decimal" placeholder="件数" aria-label="件数"><span></span><select class="li" aria-label="入れる内訳項目"><option value="">入れる項目を選ぶ</option>${lb._items.map(x=>`<option value="${esc(x.id)}">${x.letter} ${esc(x.name)}</option>`).join("")}</select>
+    <button type="button" class="link" aria-label="この案件を削除">削除</button><span class="sub"></span>`;
   el.querySelector(".ln").value = l.name || ""; el.querySelector(".lp").value = l.price ? fmtInput(l.price) : ""; el.querySelector(".lq").value = hasVal(l.qty) ? l.qty : "";
   if (l.item && lb._items.some(x=>x.id === l.item)) el.querySelector(".li").value = l.item;
   const lp = el.querySelector(".lp"); lp.addEventListener("blur", ()=>{ if (hasVal(lp.value)) lp.value = fmtInput(toNum(lp.value)) || "0"; });
   el.querySelector("button").addEventListener("click", ()=>{ el.remove(); recalcRow(row); renderCalc(); });
-  lb.querySelector(".linebox").appendChild(el);
+  group.querySelector(".linebox").appendChild(el);
   return el;
 }
-function readLines(row){
-  return [...row.querySelectorAll(".line")].map(el=>({ name: el.querySelector(".ln").value.trim(), price: toNum(el.querySelector(".lp").value), qty: toNum(el.querySelector(".lq").value), item: el.querySelector(".li").value }))
-    .filter(l=>l.name || l.price || l.qty);
+function readDetails(row){
+  return [...row.querySelectorAll(".dgroup")].map(g=>({ title: g.querySelector(".dt").value.trim(),
+    lines: [...g.querySelectorAll(".line")].map(el=>({ name: el.querySelector(".ln").value.trim(), price: toNum(el.querySelector(".lp").value), qty: toNum(el.querySelector(".lq").value), item: el.querySelector(".li").value }))
+      .filter(l=>l.name || l.price || l.qty) })).filter(g=>g.title || g.lines.length);
 }
 function rowInputs(row){
   const inputs = {}; row.querySelectorAll(".parts input[data-item]:not([data-fx])").forEach(el=>{ inputs[el.dataset.item] = toNum(el.value); });
@@ -1307,6 +1326,8 @@ function recalcRow(row){
   const sums = {};
   row.querySelectorAll(".line").forEach(el=>{ const v = Math.round(toNum(el.querySelector(".lp").value) * toNum(el.querySelector(".lq").value)), k = el.querySelector(".li").value;
     el.querySelector(".sub").textContent = `小計 ${yen(v)}`; if (k) sums[k] = (sums[k] || 0) + v; });
+  row.querySelectorAll(".dgroup").forEach(g=>{ const t = [...g.querySelectorAll(".line")].reduce((a,el)=>a + Math.round(toNum(el.querySelector(".lp").value) * toNum(el.querySelector(".lq").value)), 0);
+    g.querySelector(".dsum").textContent = g.querySelector(".line") ? `この明細の合計 ${yen(t)}` : ""; });
   row.querySelectorAll(".parts input[data-item]:not([data-fx])").forEach(el=>{
     const by = Object.prototype.hasOwnProperty.call(sums, el.dataset.item);
     // 明細に切り替える前の手入力の値は覚えておき、明細がなくなったら戻す
@@ -1326,7 +1347,7 @@ function readTransfers(){
     const q = sel => r.querySelector(sel);
     const from = q("select[id^=trFrom]").value, to = q("select[id^=trTo]").value;
     const c = projDefs(), calc = c.items.length ? computePayment(c, rowInputs(r), q("input[id^=trAmt]").value) : null;
-    return { date: q("input[type=date]").value, amount: calc ? calc.amount : toNum(q("input[id^=trAmt]").value), ...(c.items.length ? { parts: calc.parts } : {}), ...(readLines(r).length ? { lines: readLines(r) } : {}), kind: q("select[id^=trKind]").value,
+    return { date: q("input[type=date]").value, amount: calc ? calc.amount : toNum(q("input[id^=trAmt]").value), ...(c.items.length ? { parts: calc.parts } : {}), ...(readDetails(r).length ? { details: readDetails(r) } : {}), kind: q("select[id^=trKind]").value,
       from, to, fromLabel: accountLabel(findAccount(from)), toLabel: accountLabel(findAccount(to)), memo: q("input[id^=trMemo]").value.trim() };
   }).filter(t=>t.amount || t.date || (t.parts && Object.values(t.parts).some(v=>v)));
 }
