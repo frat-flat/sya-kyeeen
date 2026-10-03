@@ -1546,7 +1546,7 @@ function renderHeader(){
   applyMode();
   const p = projOf(cur);
   $("title").textContent = p ? projLabel(p) : "プロジェクト";
-  document.title = p ? `${projLabel(p)}｜シャッキーーン` : "シャッキーーン";
+  document.title = "シャッキーーン";
   $("fFixed").placeholder = fmtInput(settings.defaultFixed);
   $("fixedHint").textContent = `空欄なら設定値（${yen(settings.defaultFixed)}）`;
 }
