@@ -1,0 +1,1030 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>返済・補填台帳</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+JP:wght@400;500;700&family=Zen+Kaku+Gothic+New:wght@700;900&display=swap">
+<style>
+/* Layout: 通帳のような台帳。上に残高帯、中段に「今月の計算」（入力｜内訳）、下に残高推移と月次台帳、最後に設定。 */
+:root{
+  --bg:#eef2f0; --paper:#ffffff; --ink:#1b2624; --muted:#5d6b68; --line:#d5dedb; --soft:#f5f8f7;
+  --accent:#17614f; --accent-ink:#ffffff;
+  --reward:#3557a6; --repay:#17614f; --loan:#b0671a; --warn-bg:#fff4e2; --warn-ink:#7a4510; --danger:#b23a3a;
+  --font-display:"Zen Kaku Gothic New","Hiragino Sans","Yu Gothic",sans-serif;
+  --font-body:"IBM Plex Sans JP","Hiragino Sans","Yu Gothic","Meiryo",sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#121816; --paper:#1a2220; --ink:#e4ece9; --muted:#9aaba6; --line:#2e3a37; --soft:#1f2927;
+  --accent:#4fbf9f; --accent-ink:#0d1714;
+  --reward:#8aa6ec; --repay:#4fbf9f; --loan:#e9a556; --warn-bg:#3a2a14; --warn-ink:#f3c98d; --danger:#ef8080; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#121816; --paper:#1a2220; --ink:#e4ece9; --muted:#9aaba6; --line:#2e3a37; --soft:#1f2927;
+  --accent:#4fbf9f; --accent-ink:#0d1714;
+  --reward:#8aa6ec; --repay:#4fbf9f; --loan:#e9a556; --warn-bg:#3a2a14; --warn-ink:#f3c98d; --danger:#ef8080; color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0}
+[hidden]{display:none!important}
+body{background:var(--bg);color:var(--ink);font-family:var(--font-body);font-size:15px;line-height:1.65;padding:0 16px;padding-block:20px 48px}
+.wrap{max-width:1080px;margin:0 auto;display:grid;grid-template-columns:minmax(0,1fr);gap:20px}
+.wrap>*{min-width:0}
+h1,h2,h3{font-family:var(--font-display);margin:0;text-wrap:balance;line-height:1.3}
+h1{font-size:1.6rem;font-weight:900}
+h2{font-size:1.15rem;font-weight:700}
+.num,td,.kpi b,.amt{font-variant-numeric:tabular-nums}
+.muted{color:var(--muted)}
+.small{font-size:.85rem}
+.panel{background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:20px}
+.head{display:flex;flex-wrap:wrap;gap:12px 24px;align-items:end;justify-content:space-between}
+.head p{margin:4px 0 0}
+.store{font-size:.8rem;padding:3px 10px;border-radius:99px;background:var(--soft);border:1px solid var(--line);color:var(--muted);white-space:nowrap}
+.kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.kpi{background:var(--paper);padding:14px 16px;min-width:0}
+.kpi span{display:block;font-size:.78rem;color:var(--muted);letter-spacing:.04em}
+.kpi b{display:block;font-size:1.35rem;font-family:var(--font-body);font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.kpi.main b{color:var(--loan)}
+.calc{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,6fr);gap:20px;align-items:start}
+.form{display:grid;gap:14px}
+.row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.field{display:grid;gap:4px;min-width:0}
+.field label{font-size:.82rem;font-weight:500;color:var(--muted)}
+.field .hint{font-size:.75rem;color:var(--muted)}
+input,select,textarea{font:inherit;color:var(--ink);background:var(--soft);border:1px solid var(--line);border-radius:6px;padding:0 10px;width:100%;min-width:0;margin:0}
+input,select{height:2.75rem;line-height:normal;display:block}
+textarea{padding:8px 10px}
+input[type="month"],input[type="date"]{-webkit-appearance:none;appearance:none;text-align:left}
+input::-webkit-date-and-time-value{text-align:left}
+.row{align-items:start}
+.field label{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.transfer,.acct{border:1px solid var(--line);border-radius:8px;padding:12px;display:grid;gap:10px;background:var(--paper)}
+.transfer .head2,.acct .head2{display:flex;justify-content:space-between;align-items:center;font-size:.8rem;font-weight:700;color:var(--muted)}
+.transfers,.accts{display:grid;gap:10px}
+.acct .row3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.recon{border-radius:6px;padding:8px 12px;font-size:.85rem;background:var(--soft);border:1px solid var(--line)}
+.flow{white-space:nowrap}
+@media (max-width:560px){ .acct .row3{grid-template-columns:repeat(2,minmax(0,1fr))} }
+input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.yen{position:relative}
+.yen input{padding-right:2.2em;text-align:right}
+.yen::after{content:"円";position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:.85rem;pointer-events:none}
+.yen.pct::after{content:"%"}
+fieldset{border:1px dashed var(--line);border-radius:8px;padding:10px 12px 12px;margin:0;display:grid;gap:10px;min-width:0}
+legend{font-size:.8rem;font-weight:700;padding:0 6px;color:var(--muted)}
+.btns{display:flex;flex-wrap:wrap;gap:8px}
+button{font:inherit;font-weight:500;border-radius:6px;border:1px solid var(--line);background:var(--paper);color:var(--ink);padding:8px 14px;cursor:pointer}
+button.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+button.danger{color:var(--danger);border-color:var(--danger)}
+button:disabled{opacity:.5;cursor:default}
+button.link{border:none;background:none;padding:2px 6px;color:var(--accent);text-decoration:underline}
+button.link.del{color:var(--danger)}
+.toast{font-size:.85rem;color:var(--accent);min-height:1.4em}
+.result{display:grid;gap:16px}
+.bigline{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.big{border:1px solid var(--line);border-radius:8px;padding:12px 14px;background:var(--soft)}
+.big span{font-size:.78rem;color:var(--muted)}
+.big b{display:block;font-size:1.5rem;font-variant-numeric:tabular-nums}
+.bar{display:flex;height:28px;border-radius:6px;overflow:hidden;background:var(--soft);border:1px solid var(--line)}
+.bar div{height:100%;min-width:0}
+.legend{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:.8rem;color:var(--muted)}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+.c-reward{background:var(--reward)} .c-loan{background:var(--loan)} .c-repay{background:var(--repay)}
+.steps{margin:0;padding-left:1.4em;display:grid;gap:6px}
+.steps li::marker{font-weight:700;color:var(--muted)}
+.breakdown{width:100%;border-collapse:collapse;font-size:.92rem}
+.breakdown td{padding:6px 0;border-bottom:1px solid var(--line)}
+.breakdown td:last-child{text-align:right;white-space:nowrap}
+.breakdown tr.sub td{color:var(--muted);font-size:.85rem;padding-left:1em}
+.breakdown tr.total td{font-weight:700;border-bottom:2px solid var(--ink)}
+.note{background:var(--warn-bg);color:var(--warn-ink);border-radius:6px;padding:8px 12px;font-size:.85rem}
+.pill{display:inline-block;font-size:.72rem;padding:1px 8px;border-radius:99px;border:1px solid currentColor;white-space:nowrap}
+.up{color:var(--loan)} .down{color:var(--repay)}
+.tablewrap{overflow-x:auto;border:1px solid var(--line);border-radius:8px}
+table.ledger{border-collapse:collapse;width:100%;min-width:900px;font-size:.88rem}
+table.ledger th{font-size:.75rem;font-weight:500;color:var(--muted);text-align:right;padding:8px 10px;background:var(--soft);border-bottom:1px solid var(--line);white-space:nowrap}
+table.ledger th:first-child,table.ledger td:first-child,table.ledger td.memo,table.ledger th.memo{text-align:left}
+table.ledger td{padding:8px 10px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap}
+table.ledger tr:hover td{background:var(--soft)}
+table.ledger tr.editing td{background:var(--soft)}
+table.ledger td.bal{font-weight:700}
+table.ledger td.memo{max-width:180px;overflow:hidden;text-overflow:ellipsis;color:var(--muted)}
+table.ledger tfoot td{font-weight:700;background:var(--soft)}
+.items{display:grid;gap:8px}
+.item{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr) auto;gap:8px;align-items:center}
+.item button{padding:6px 10px;color:var(--muted)}
+input[readonly]{opacity:.75}
+table.matrix{min-width:0}
+table.matrix th.grp{text-align:center;border-left:1px solid var(--line)}
+table.matrix th.grp button{border:none;background:none;padding:0 4px;font:inherit;font-weight:700;color:var(--ink);cursor:pointer}
+table.matrix th.sub,table.matrix td.sub{background:var(--soft)}
+table.matrix th.sub{font-size:.72rem}
+table.matrix td.g0,table.matrix th.g0{border-left:1px solid var(--line)}
+table.matrix td.zero{color:var(--muted)}
+#authPanel{display:none}
+body.locked .wrap>section:not(#authPanel){display:none}
+body.locked #authPanel{display:grid}
+.auth{max-width:420px;width:100%;margin:0 auto;gap:14px}
+.who{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;justify-content:flex-end}
+.empty{padding:28px 16px;text-align:center;color:var(--muted)}
+.chartbox{width:100%;overflow-x:auto}
+svg text{fill:var(--muted);font-size:11px;font-family:var(--font-body)}
+details summary{cursor:pointer;font-family:var(--font-display);font-weight:700;font-size:1.15rem}
+.sectionhead{display:flex;flex-wrap:wrap;gap:8px 16px;justify-content:space-between;align-items:center;margin-bottom:12px}
+.confirm{display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:.85rem}
+@media (max-width:820px){
+  .calc{grid-template-columns:minmax(0,1fr)}
+  .kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media (max-width:420px){ .row,.bigline{grid-template-columns:minmax(0,1fr)} }
+@media (prefers-reduced-motion:no-preference){ .bar div{transition:width .25s ease} }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header class="head">
+    <div>
+      <h1 id="title">返済・補填台帳</h1>
+      <p class="muted small">毎月の固定支払額を、報酬・返済充当・補填の貸付に振り分けて記録します。</p>
+    </div>
+    <div class="who">
+      <span class="store" id="storeBadge">読み込み中…</span>
+      <span class="muted small" id="userEmail" hidden></span>
+      <button type="button" class="link" id="logoutBtn" hidden>ログアウト</button>
+    </div>
+  </header>
+
+  <section class="panel" id="authPanel">
+    <form class="form auth" id="authForm" autocomplete="on">
+      <h2>ログイン</h2>
+      <p class="muted small" style="margin:0">台帳はログインしたアカウントだけが読み書きできます。</p>
+      <div class="field"><label for="authEmail">メールアドレス</label><input type="email" id="authEmail" autocomplete="email" required></div>
+      <div class="field"><label for="authPass">パスワード（8文字以上）</label><input type="password" id="authPass" autocomplete="current-password" minlength="8" required></div>
+      <div class="btns"><button type="submit" class="primary" id="loginBtn">ログイン</button><button type="button" id="signupBtn">新規登録</button></div>
+      <div class="toast" id="authMsg" role="status"></div>
+    </form>
+  </section>
+
+  <div class="note" id="importBox" hidden>このブラウザに以前の記録が残っています。<button type="button" class="link" id="importBtn">クラウドに取り込む</button></div>
+
+  <section class="kpis" aria-label="現在の状況">
+    <div class="kpi main"><span>現在の貸付残高</span><b id="kBalance">0円</b></div>
+    <div class="kpi"><span>累計 貸付（補填）</span><b id="kLoan">0円</b></div>
+    <div class="kpi"><span>累計 返済</span><b id="kRepay">0円</b></div>
+    <div class="kpi"><span>累計 本人報酬</span><b id="kReward">0円</b></div>
+  </section>
+
+  <section class="panel">
+    <div class="sectionhead">
+      <h2 id="calcTitle">今月の計算</h2>
+      <span class="muted small" id="editState">新しい月を入力中</span>
+    </div>
+    <div class="calc">
+      <form class="form" id="entryForm" autocomplete="off">
+        <div class="row">
+          <div class="field"><label for="fMonth">対象月</label><input type="month" id="fMonth" required></div>
+          <div class="field"><label for="fFixed">固定支払額</label><div class="yen"><input id="fFixed" inputmode="numeric" placeholder="設定値"></div><span class="hint" id="fixedHint">空欄なら設定値</span></div>
+        </div>
+        <div class="field"><label for="fReward">その月の実際の報酬額（インセンティブ等）</label><div class="yen"><input id="fReward" inputmode="numeric" placeholder="0"></div><span class="hint" id="rewardHint">下で内訳を入れると、その合計が自動で入ります</span></div>
+        <fieldset>
+          <legend>報酬の内訳（任意）</legend>
+          <div class="items" id="itemsBox"></div>
+          <div><button type="button" class="link" id="addItem">＋ 内訳を追加</button></div>
+          <datalist id="itemNames"></datalist>
+        </fieldset>
+        <fieldset>
+          <legend>返済への充当ルール</legend>
+          <div class="row">
+            <div class="field"><label for="fRuleType">方式</label>
+              <select id="fRuleType"><option value="default">設定どおり</option><option value="pct">報酬の割合</option><option value="amt">固定額</option><option value="none">今月は充当しない</option></select></div>
+            <div class="field"><label for="fRuleValue" id="ruleValueLabel">値</label><div class="yen" id="ruleValueWrap"><input id="fRuleValue" inputmode="decimal"></div></div>
+          </div>
+        </fieldset>
+        <fieldset>
+          <legend>先払い（月末の振込より前に渡した分）</legend>
+          <div class="row">
+            <div class="field"><label for="fPrepay">先払い額</label><div class="yen"><input id="fPrepay" inputmode="numeric" placeholder="0"></div><span class="hint" id="prepayHint">振込記録の「先払い」から自動で入ります</span></div>
+            <div class="field"><label for="fPrepayReward">うち報酬分</label><div class="yen"><input id="fPrepayReward" inputmode="numeric" placeholder="0"></div><span class="hint">残りは貸付として扱います</span></div>
+          </div>
+        </fieldset>
+        <fieldset>
+          <legend>振込の記録（支払日・振込元・振込先）</legend>
+          <div class="transfers" id="transfersBox"></div>
+          <div class="btns"><button type="button" class="link" id="addTransfer">＋ 振込を追加</button><button type="button" class="link" id="addMonthEnd">計算どおりの月末振込を追加</button></div>
+          <span class="hint" id="acctHint">口座は下の「基本設定」で登録すると選べるようになります。</span>
+        </fieldset>
+        <div class="row">
+          <div class="field"><label for="fManual">本人からの追加返済</label><div class="yen"><input id="fManual" inputmode="numeric" placeholder="0"></div><span class="hint">現金などで別途返してもらった額</span></div>
+          <div class="field"><label for="fMemo">メモ</label><input id="fMemo" maxlength="120" placeholder="例：賞与月"></div>
+        </div>
+        <div class="btns">
+          <button type="submit" class="primary" id="saveBtn">この月を台帳に保存</button>
+          <button type="button" id="newBtn">新しい月を入力</button>
+          <button type="button" class="danger" id="delBtn" hidden>この月を削除</button>
+        </div>
+        <div class="confirm" id="delConfirm" hidden>この月の記録を削除します。<button type="button" class="danger" id="delYes">削除する</button><button type="button" id="delNo">やめる</button></div>
+        <div class="toast" id="toast" role="status"></div>
+      </form>
+
+      <div class="result" aria-live="polite">
+        <div class="bigline">
+          <div class="big"><span>今月渡す総額</span><b id="rTotal">0円</b></div>
+          <div class="big"><span>月末に振り込む額</span><b id="rMonthEnd">0円</b><span id="rMonthEndSub"></span></div>
+        </div>
+        <div>
+          <div class="bar" id="rBar" aria-hidden="true"></div>
+          <div class="legend" style="margin-top:6px"><span><i class="c-reward"></i>本人報酬</span><span><i class="c-loan"></i>貸付（補填）</span><span class="muted">返済充当は報酬から差し引くため、渡す総額には含まれません</span></div>
+        </div>
+        <ol class="steps" id="rSteps"></ol>
+        <table class="breakdown" id="rTable"></table>
+        <div id="rNotes" style="display:grid;gap:8px"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="sectionhead">
+      <h2>内訳マトリクス</h2>
+      <div class="btns"><button type="button" class="link" id="expandAll">すべて展開</button><button type="button" class="link" id="collapseAll">すべて閉じる</button></div>
+    </div>
+    <p class="muted small" style="margin:0 0 10px">縦が月、横が渡した金額の内訳です。見出しの ▸ を押すと、その内訳をさらに分解します（報酬の項目別、先払い・月末振込の別など）。</p>
+    <div class="tablewrap"><table class="ledger matrix" id="matrix"></table></div>
+  </section>
+
+  <section class="panel">
+    <div class="sectionhead">
+      <h2>振込履歴</h2>
+      <div class="btns"><button type="button" id="copyTrBtn">履歴をコピー</button></div>
+    </div>
+    <div class="tablewrap"><table class="ledger" id="history"></table></div>
+    <div class="toast" id="hToast" role="status"></div>
+  </section>
+
+  <section class="panel">
+    <div class="sectionhead"><h2>貸付残高の推移</h2><span class="muted small" id="chartNote"></span></div>
+    <div class="chartbox" id="chart"></div>
+  </section>
+
+  <section class="panel">
+    <div class="sectionhead">
+      <h2>月次台帳</h2>
+      <div class="btns"><button type="button" id="csvBtn">CSVで保存</button><button type="button" id="copyBtn">表をコピー</button></div>
+    </div>
+    <div class="tablewrap"><table class="ledger" id="ledger"></table></div>
+    <p class="muted small" style="margin:8px 0 0">行をクリックすると上の計算欄で編集できます。</p>
+  </section>
+
+  <section class="panel">
+    <details id="settingsBox">
+      <summary>基本設定</summary>
+      <form class="form" id="settingsForm" style="margin-top:14px" autocomplete="off">
+        <div class="row">
+          <div class="field"><label for="sName">対象者の名前</label><input id="sName" maxlength="40" placeholder="例：山田さん"></div>
+          <div class="field"><label for="sFixed">毎月の固定支払額</label><div class="yen"><input id="sFixed" inputmode="numeric"></div></div>
+        </div>
+        <div class="row">
+          <div class="field"><label for="sRuleType">返済充当の方式</label><select id="sRuleType"><option value="amt">固定額（例：毎月10万円）</option><option value="pct">報酬の割合（例：50%）</option></select></div>
+          <div class="field"><label for="sRuleValue" id="sRuleLabel">充当額</label><div class="yen" id="sRuleWrap"><input id="sRuleValue" inputmode="decimal"></div></div>
+        </div>
+        <div class="row">
+          <div class="field"><label for="sStart">開始時点の貸付残高</label><div class="yen"><input id="sStart" inputmode="numeric" placeholder="0"></div><span class="hint">ツールを使い始める前からの借金</span></div>
+          <div class="field"><label for="sSurplus">報酬が固定額を上回った月</label><select id="sSurplus"><option value="pay">上回った分も全額支払う</option><option value="repay">上回った分を追加返済に回す</option></select></div>
+        </div>
+        <fieldset>
+          <legend>口座の登録</legend>
+          <div class="accts" id="acctsBox"></div>
+          <div><button type="button" class="link" id="addAcct">＋ 口座を追加</button></div>
+          <span class="hint">「吉田のA銀行」「山田の生活費口座」のように表示されます。</span>
+          <div class="row">
+            <div class="field"><label for="sFrom">いつもの振込元</label><select id="sFrom"></select></div>
+            <div class="field"><label for="sTo">いつもの振込先</label><select id="sTo"></select></div>
+          </div>
+        </fieldset>
+        <div class="btns"><button type="submit" class="primary">設定を保存</button></div>
+        <div class="toast" id="sToast" role="status"></div>
+      </form>
+    </details>
+  </section>
+
+  <section class="panel small muted">
+    <h2 style="font-size:1rem;color:var(--ink);margin-bottom:6px">計算のしくみ</h2>
+    <p style="margin:0">報酬のうち充当ルール分を返済に回し、残りを本人報酬として支払います。本人報酬が固定支払額に届かない差額は、その月に貸し付けます。このため、報酬が固定額を下回る月は、返済充当の額に関わらず残高は「固定額 − 報酬額」だけ増えます（充当した分を同じ月に貸し戻す形になるため）。先払いは、その月に渡す総額の一部を前もって渡したものとして扱い、月末の振込額から差し引きます。</p>
+  </section>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"></script>
+<script>
+/* ---------- Supabase 接続設定（公開用キーのみ。データは行レベルセキュリティで本人に限定） ---------- */
+const SUPABASE_URL = "https://lcfsxvrlkeijygkellsz.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_a4jxgr5prKw4tSUHC4lGAg_ODTg8wtI";
+
+/* ---------- 計算ロジック ---------- */
+const DEFAULT_SETTINGS = { name:"", defaultFixed:400000, ruleType:"amt", ruleValue:100000, startBalance:0, surplusMode:"pay", accounts:[], defaultFrom:"", defaultTo:"" };
+
+function toNum(v){
+  if (v === null || v === undefined) return 0;
+  const n = Number(String(v).replace(/[,，\s円¥]/g,""));
+  return Number.isFinite(n) ? n : 0;
+}
+function hasVal(v){ return v !== null && v !== undefined && String(v).trim() !== ""; }
+
+function calcMonth(e, s, prev){
+  const notes = [];
+  const F = Math.max(0, hasVal(e.fixed) ? toNum(e.fixed) : toNum(s.defaultFixed));
+  const items = rewardItemsOf(e);
+  const R = items.length ? items.reduce((a,x)=>a+x.amount,0) : Math.max(0, toNum(e.reward));
+  const useDefault = !e.ruleType || e.ruleType === "default";
+  const rt = useDefault ? s.ruleType : e.ruleType;
+  const rv = useDefault ? toNum(s.ruleValue) : toNum(e.ruleValue);
+  let repay = rt === "pct" ? Math.round(R * rv / 100) : rt === "amt" ? Math.min(rv, R) : 0;
+  repay = Math.max(0, Math.min(repay, R));
+  if (rt === "amt" && rv > R && R > 0) notes.push(`報酬が充当額（${yen(rv)}）より少ないため、報酬全額を返済に充当しました。`);
+
+  let net = R - repay, loan = 0, extraAuto = 0, total;
+  if (net < F){
+    loan = F - net; total = F;
+  } else {
+    if (repay > prev){
+      notes.push(`返済充当（${yen(repay)}）が残高（${yen(prev)}）を超えるため、超過分は本人報酬に戻しました。`);
+      net += repay - prev; repay = prev;
+    }
+    if (s.surplusMode === "repay" && net > F){
+      extraAuto = Math.min(net - F, Math.max(0, prev - repay));
+      net -= extraAuto;
+    }
+    total = net;
+  }
+
+  const P = Math.max(0, toNum(e.prepay));
+  let Pr = Math.max(0, toNum(e.prepayReward));
+  if (Pr > P){ notes.push("先払いの報酬分が先払い額を超えていたため、先払い額までとしました。"); Pr = P; }
+  if (P > total){
+    notes.push(`先払い額が今月渡す総額を ${yen(P - total)} 上回ったため、その分を追加の貸付としました。`);
+    loan += P - total; total = P;
+  }
+  let rewardInPrepay = Math.min(Pr, net);
+  if (Pr > net) notes.push(`先払いの報酬分（${yen(Pr)}）が今月の本人報酬（${yen(net)}）を超えるため、超過分は貸付として扱いました。`);
+  let loanInPrepay = P - rewardInPrepay;
+  if (loanInPrepay > loan){
+    const over = loanInPrepay - loan;
+    notes.push(`先払いの貸付分が今月の補填額を ${yen(over)} 上回るため、その分は報酬の先払いとして扱いました。`);
+    rewardInPrepay += over; loanInPrepay = loan;
+  }
+  const rewardRemain = net - rewardInPrepay;
+  const loanRemain = loan - loanInPrepay;
+
+  let M = Math.max(0, toNum(e.manualRepay));
+  const room = Math.max(0, prev + loan - repay - extraAuto);
+  if (M > room){ notes.push(`追加返済が残高を上回るため、${yen(room)} までとしました。`); M = room; }
+  const end = prev + loan - repay - extraAuto - M;
+
+  // 報酬の内訳ごとに、返済充当と本人報酬を金額比で按分する
+  const base = items.length ? items : [{ name: UNCLASSIFIED, amount: R }];
+  const repaySplit = allocate(repay + extraAuto, base.map(x=>x.amount));
+  const itemRows = base.map((x,i)=>({ name: x.name, gross: x.amount, repay: repaySplit[i], net: x.amount - repaySplit[i] }));
+  // 本人報酬は報酬の範囲内（超過分が戻った場合も含めて）なので、netの合計は R - 充当 と一致する
+  return { F, R, rt, rv, repay, net, loan, extraAuto, total, P, rewardInPrepay, loanInPrepay,
+    monthEnd: total - P, rewardRemain, loanRemain, M, prev, end, repayTotal: repay + extraAuto + M, items: itemRows, notes };
+}
+
+const UNCLASSIFIED = "報酬（内訳なし）";
+function rewardItemsOf(e){
+  return (Array.isArray(e.rewardItems) ? e.rewardItems : [])
+    .map(x=>({ name: String(x.name || "").trim() || "名称なし", amount: Math.max(0, toNum(x.amount)) }))
+    .filter(x=>x.amount > 0);
+}
+function allocate(total, weights){
+  const W = weights.reduce((a,b)=>a+b,0);
+  if (!W || !total) return weights.map(()=>0);
+  const raw = weights.map(w=>total*w/W), fl = raw.map(Math.floor);
+  let rem = Math.round(total - fl.reduce((a,b)=>a+b,0));
+  const order = raw.map((v,i)=>[v-fl[i],i]).sort((a,b)=>b[0]-a[0]);
+  for (let k=0; k<rem; k++) fl[order[k % order.length][1]]++;
+  return fl;
+}
+
+function buildLedger(months, s){
+  let bal = toNum(s.startBalance);
+  return months.slice().sort((a,b)=>a.month.localeCompare(b.month)).map(e=>{
+    const r = calcMonth(e, s, bal); bal = r.end; return { e, r };
+  });
+}
+
+/* ---------- 表示ヘルパ ---------- */
+function yen(n){ return Math.round(n).toLocaleString("ja-JP") + "円"; }
+function man(n){ const v = n/10000; return (Number.isInteger(v) ? v : v.toFixed(1)) + "万"; }
+function monthLabel(m){ if(!m) return ""; const [y,mo]=m.split("-"); return `${y}年${Number(mo)}月`; }
+function ruleText(rt, rv){ return rt === "pct" ? `報酬の${rv}%` : rt === "amt" ? `${yen(rv)}（固定額）` : "充当なし"; }
+const $ = id => document.getElementById(id);
+function esc(s){ return String(s ?? "").replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+
+/* ---------- 状態と保存先 ---------- */
+let settings = { ...DEFAULT_SETTINGS };
+let months = [];          // [{month, fixed, reward, ruleType, ruleValue, prepay, prepayReward, manualRepay, memo}]
+let editingId = null;     // 編集中の月（YYYY-MM）
+let store = { mode:"local" };
+const LS_KEY = "repayment-ledger-v1";
+
+function loadLocal(){
+  try { const raw = localStorage.getItem(LS_KEY); if (!raw) return; const d = JSON.parse(raw);
+    if (d.settings) settings = { ...DEFAULT_SETTINGS, ...d.settings }; if (Array.isArray(d.months)) months = d.months; } catch(_){}
+}
+function saveLocal(){ try { localStorage.setItem(LS_KEY, JSON.stringify({ settings, months })); } catch(_){} }
+
+async function sbCheck(res){ if (res.error) throw res.error; return res.data; }
+async function persistMonth(m){
+  if (store.mode === "db"){ await store.db.doc("months/" + m.month).set(m); }
+  else if (store.mode === "supabase"){
+    await sbCheck(await store.sb.from("ledger_months").upsert({ user_id: store.uid, month: m.month, data: m, updated_at: new Date().toISOString() }, { onConflict: "user_id,month" }));
+    months = months.filter(x=>x.month!==m.month).concat([m]); renderAll();
+  }
+  else { months = months.filter(x=>x.month!==m.month).concat([m]); saveLocal(); renderAll(); }
+}
+async function removeMonth(id){
+  if (store.mode === "db"){ await store.db.doc("months/" + id).delete(); }
+  else if (store.mode === "supabase"){
+    await sbCheck(await store.sb.from("ledger_months").delete().eq("user_id", store.uid).eq("month", id));
+    months = months.filter(x=>x.month!==id); renderAll();
+  }
+  else { months = months.filter(x=>x.month!==id); saveLocal(); renderAll(); }
+}
+async function persistSettings(s){
+  if (store.mode === "db"){ await store.db.doc("config/settings").set(s); }
+  else if (store.mode === "supabase"){
+    await sbCheck(await store.sb.from("ledger_settings").upsert({ user_id: store.uid, data: s, updated_at: new Date().toISOString() }, { onConflict: "user_id" }));
+    settings = { ...DEFAULT_SETTINGS, ...s }; renderSettings(); renderAll();
+  }
+  else { settings = s; saveLocal(); renderAll(); }
+}
+
+/* ---------- 入力フォーム ---------- */
+function readForm(){
+  return {
+    month: $("fMonth").value,
+    fixed: hasVal($("fFixed").value) ? toNum($("fFixed").value) : null,
+    reward: toNum($("fReward").value),
+    rewardItems: readItems(),
+    ruleType: $("fRuleType").value,
+    ruleValue: toNum($("fRuleValue").value),
+    prepay: toNum($("fPrepay").value),
+    prepayReward: toNum($("fPrepayReward").value),
+    manualRepay: toNum($("fManual").value),
+    transfers: readTransfers(),
+    memo: $("fMemo").value.trim()
+  };
+}
+function fmtInput(n){ return n ? Number(n).toLocaleString("ja-JP") : ""; }
+function fillForm(e){
+  $("fMonth").value = e.month || "";
+  $("fFixed").value = hasVal(e.fixed) ? fmtInput(e.fixed) : "";
+  $("fReward").value = fmtInput(e.reward);
+  setItems(e.rewardItems || []);
+  $("fRuleType").value = e.ruleType || "default";
+  $("fRuleValue").value = e.ruleType === "pct" ? (e.ruleValue || "") : fmtInput(e.ruleValue);
+  $("fPrepay").value = fmtInput(e.prepay);
+  $("fPrepayReward").value = fmtInput(e.prepayReward);
+  $("fManual").value = fmtInput(e.manualRepay);
+  setTransfers(e.transfers || []);
+  $("fMemo").value = e.memo || "";
+  syncRuleField();
+}
+let itemSeq = 0;
+function addItemRow(name, amount){
+  const i = itemSeq++;
+  const row = document.createElement("div"); row.className = "item";
+  row.innerHTML = `<input id="itemName${i}" list="itemNames" maxlength="40" placeholder="例：インセンティブ" aria-label="内訳の名前">
+    <div class="yen"><input id="itemAmt${i}" inputmode="numeric" placeholder="0" aria-label="内訳の金額"></div>
+    <button type="button" aria-label="この内訳を削除">削除</button>`;
+  row.querySelector(`#itemName${i}`).value = name || "";
+  row.querySelector(`#itemAmt${i}`).value = amount ? fmtInput(amount) : "";
+  row.querySelector("button").addEventListener("click", ()=>{ row.remove(); syncRewardFromItems(); renderCalc(); });
+  const amt = row.querySelector(`#itemAmt${i}`);
+  amt.addEventListener("blur", ()=>{ if (hasVal(amt.value)) amt.value = fmtInput(toNum(amt.value)) || "0"; });
+  $("itemsBox").appendChild(row);
+  return row;
+}
+function setItems(list){ $("itemsBox").innerHTML = ""; list.forEach(x=>addItemRow(x.name, x.amount)); syncRewardFromItems(); }
+function readItems(){
+  return [...$("itemsBox").querySelectorAll(".item")].map(r=>{
+    const [n,a] = r.querySelectorAll("input");
+    return { name: n.value.trim(), amount: toNum(a.value) };
+  }).filter(x=>x.name || x.amount);
+}
+function syncRewardFromItems(){
+  const items = readItems().filter(x=>x.amount > 0);
+  const on = items.length > 0;
+  $("fReward").readOnly = on;
+  if (on) $("fReward").value = fmtInput(items.reduce((a,x)=>a+x.amount,0)) || "0";
+  $("rewardHint").textContent = on ? `内訳 ${items.length} 件の合計です` : "下で内訳を入れると、その合計が自動で入ります";
+}
+function knownItemNames(){
+  const seen = [];
+  months.slice().sort((a,b)=>a.month.localeCompare(b.month)).forEach(m=>rewardItemsOf(m).forEach(x=>{ if (!seen.includes(x.name)) seen.push(x.name); }));
+  return seen;
+}
+/* ---------- 振込の記録・口座 ---------- */
+const KINDS = { prepay:"先払い", monthEnd:"月末振込", other:"その他" };
+function accountLabel(a){
+  if (!a) return "";
+  if (a.holder && a.bank) return `${a.holder}の${a.bank}`;
+  return a.holder || a.bank || "名前未入力の口座";
+}
+function findAccount(id){ return (settings.accounts || []).find(a=>a.id===id); }
+function accountOptions(sel){
+  const list = settings.accounts || [];
+  let html = `<option value="">${list.length ? "選択してください" : "口座が未登録です"}</option>`;
+  html += list.map(a=>`<option value="${esc(a.id)}">${esc(accountLabel(a))}</option>`).join("");
+  if (sel && !findAccount(sel)) html += `<option value="${esc(sel)}">（削除された口座）</option>`;
+  return html;
+}
+function fillAccountSelect(el, sel){ el.innerHTML = accountOptions(sel); el.value = sel || ""; }
+let trSeq = 0;
+function todayStr(){ const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; }
+function addTransferRow(t){
+  const i = trSeq++;
+  const row = document.createElement("div"); row.className = "transfer";
+  row.innerHTML = `<div class="head2"><span>振込</span><button type="button" class="link del">削除</button></div>
+    <div class="row">
+      <div class="field"><label for="trDate${i}">支払日</label><input type="date" id="trDate${i}"></div>
+      <div class="field"><label for="trAmt${i}">金額</label><div class="yen"><input id="trAmt${i}" inputmode="numeric" placeholder="0"></div></div>
+    </div>
+    <div class="row">
+      <div class="field"><label for="trFrom${i}">振込元</label><select id="trFrom${i}"></select></div>
+      <div class="field"><label for="trTo${i}">振込先</label><select id="trTo${i}"></select></div>
+    </div>
+    <div class="row">
+      <div class="field"><label for="trKind${i}">種類</label><select id="trKind${i}">${Object.entries(KINDS).map(([k,v])=>`<option value="${k}">${v}</option>`).join("")}</select></div>
+      <div class="field"><label for="trMemo${i}">メモ</label><input id="trMemo${i}" maxlength="80" placeholder="例：振込手数料は当方負担"></div>
+    </div>`;
+  row.querySelector(`#trDate${i}`).value = t.date || "";
+  row.querySelector(`#trAmt${i}`).value = t.amount ? fmtInput(t.amount) : "";
+  fillAccountSelect(row.querySelector(`#trFrom${i}`), t.from ?? settings.defaultFrom);
+  fillAccountSelect(row.querySelector(`#trTo${i}`), t.to ?? settings.defaultTo);
+  row.querySelector(`#trKind${i}`).value = t.kind || "monthEnd";
+  row.querySelector(`#trMemo${i}`).value = t.memo || "";
+  const amt = row.querySelector(`#trAmt${i}`);
+  amt.addEventListener("blur", ()=>{ if (hasVal(amt.value)) amt.value = fmtInput(toNum(amt.value)) || "0"; });
+  row.querySelector("button.del").addEventListener("click", ()=>{ row.remove(); syncPrepayFromTransfers(); renderCalc(); });
+  $("transfersBox").appendChild(row);
+  return row;
+}
+function setTransfers(list){ $("transfersBox").innerHTML = ""; list.forEach(addTransferRow); syncPrepayFromTransfers(); }
+function readTransfers(){
+  return [...$("transfersBox").querySelectorAll(".transfer")].map(r=>{
+    const q = sel => r.querySelector(sel);
+    const from = q("select[id^=trFrom]").value, to = q("select[id^=trTo]").value;
+    return { date: q("input[type=date]").value, amount: toNum(q("input[id^=trAmt]").value), kind: q("select[id^=trKind]").value,
+      from, to, fromLabel: accountLabel(findAccount(from)), toLabel: accountLabel(findAccount(to)), memo: q("input[id^=trMemo]").value.trim() };
+  }).filter(t=>t.amount || t.date);
+}
+function syncPrepayFromTransfers(){
+  const pre = readTransfers().filter(t=>t.kind==="prepay" && t.amount>0);
+  const on = pre.length > 0;
+  $("fPrepay").readOnly = on;
+  if (on) $("fPrepay").value = fmtInput(pre.reduce((a,t)=>a+t.amount,0));
+  $("prepayHint").textContent = on ? `振込記録の先払い ${pre.length} 件の合計です` : "振込記録の「先払い」から自動で入ります";
+}
+function refreshAccountSelects(){
+  document.querySelectorAll("#transfersBox select[id^=trFrom], #transfersBox select[id^=trTo]").forEach(el=>fillAccountSelect(el, el.value));
+  $("acctHint").hidden = (settings.accounts || []).length > 0;
+}
+function transferWho(t, side){
+  const id = t[side], label = t[side + "Label"];
+  return accountLabel(findAccount(id)) || label || "—";
+}
+
+/* 基本設定の口座エディタ */
+let acctSeq = 0;
+function addAcctRow(a){
+  const i = acctSeq++;
+  const row = document.createElement("div"); row.className = "acct"; row.dataset.id = a.id || ("a" + Date.now().toString(36) + Math.random().toString(36).slice(2,6));
+  row.innerHTML = `<div class="head2"><span>口座</span><button type="button" class="link del">削除</button></div>
+    <div class="row">
+      <div class="field"><label for="acHolder${i}">誰の</label><input id="acHolder${i}" maxlength="40" placeholder="例：吉田"></div>
+      <div class="field"><label for="acBank${i}">銀行・口座名</label><input id="acBank${i}" maxlength="40" placeholder="例：A銀行、生活費口座"></div>
+    </div>`;
+  row.querySelector(`#acHolder${i}`).value = a.holder || "";
+  row.querySelector(`#acBank${i}`).value = a.bank || "";
+  row.querySelector("button.del").addEventListener("click", ()=>{ row.remove(); syncDefaultAcctSelects(); });
+  $("acctsBox").appendChild(row);
+  return row;
+}
+function readAccts(){
+  return [...$("acctsBox").querySelectorAll(".acct")].map(r=>{
+    const v = sel => r.querySelector(sel).value.trim();
+    return { id: r.dataset.id, holder: v("input[id^=acHolder]"), bank: v("input[id^=acBank]") };
+  }).filter(a=>a.holder || a.bank);
+}
+function syncDefaultAcctSelects(){
+  const list = readAccts();
+  ["sFrom","sTo"].forEach(id=>{
+    const el = $(id), cur = el.value || (id==="sFrom" ? settings.defaultFrom : settings.defaultTo);
+    el.innerHTML = `<option value="">指定しない</option>` + list.map(a=>`<option value="${esc(a.id)}">${esc(accountLabel(a))}</option>`).join("");
+    el.value = list.some(a=>a.id===cur) ? cur : "";
+  });
+}
+
+function nextMonth(){
+  const sorted = months.map(m=>m.month).sort();
+  const base = sorted.length ? sorted[sorted.length-1] : null;
+  const d = base ? new Date(Number(base.slice(0,4)), Number(base.slice(5,7)), 1) : new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`;
+}
+function startNew(){
+  editingId = null;
+  fillForm({ month: nextMonth(), ruleType:"default" });
+  if (!months.length && !$("fReward").value) $("fReward").value = "200,000"; // 例：報酬20万円
+  else { const last = months.slice().sort((a,b)=>b.month.localeCompare(a.month))[0]; // 前月の内訳名を引き継ぐ
+    if (last) rewardItemsOf(last).forEach(x=>addItemRow(x.name, "")); }
+  updateEditState(); renderCalc();
+}
+function updateEditState(){
+  const m = $("fMonth").value;
+  const exists = months.some(x=>x.month===m);
+  $("editState").textContent = editingId ? `${monthLabel(editingId)}を編集中` : exists ? `${monthLabel(m)}は記録済み（保存すると上書き）` : "新しい月を入力中";
+  $("delBtn").hidden = !editingId; $("delConfirm").hidden = true;
+  $("calcTitle").textContent = m ? `${monthLabel(m)}の計算` : "今月の計算";
+}
+function syncRuleField(){
+  const t = $("fRuleType").value;
+  const eff = t === "default" ? settings.ruleType : t;
+  $("ruleValueWrap").classList.toggle("pct", eff === "pct");
+  $("fRuleValue").disabled = t === "default" || t === "none";
+  if (t === "default"){ $("fRuleValue").value = settings.ruleType === "pct" ? settings.ruleValue : fmtInput(settings.ruleValue); }
+  if (t === "none") $("fRuleValue").value = "";
+  $("ruleValueLabel").textContent = eff === "pct" ? "割合" : "充当額";
+}
+
+/* ---------- 今月の計算 表示 ---------- */
+function prevBalanceFor(month){
+  const rows = buildLedger(months.filter(m=>m.month < month), settings);
+  return rows.length ? rows[rows.length-1].r.end : toNum(settings.startBalance);
+}
+function renderCalc(){
+  const e = readForm();
+  const r = calcMonth(e, settings, prevBalanceFor(e.month || "9999-99"));
+  $("rTotal").textContent = yen(r.total);
+  $("rMonthEnd").textContent = yen(r.monthEnd);
+  $("rMonthEndSub").textContent = r.P ? `（先払い ${yen(r.P)} を差し引き後）` : "";
+  const t = r.total || 1;
+  $("rBar").innerHTML = `<div class="c-reward" style="width:${r.net/t*100}%" title="本人報酬"></div><div class="c-loan" style="width:${r.loan/t*100}%" title="貸付"></div>`;
+
+  const steps = [];
+  if (r.R === 0) steps.push(`今月の報酬はありません。`);
+  else if (r.repay > 0) steps.push(`報酬 <b>${yen(r.R)}</b> のうち <b class="down">${yen(r.repay)}</b> を返済に充てます（${ruleText(r.rt, r.rv)}）。`);
+  else steps.push(`報酬 <b>${yen(r.R)}</b> は返済に充当しません。`);
+  if (r.R > 0) steps.push(`残りの <b>${yen(r.R - r.repay)}</b> を本人の報酬として支払います。`);
+  if (r.extraAuto > 0) steps.push(`固定額 ${yen(r.F)} を上回る報酬のうち <b class="down">${yen(r.extraAuto)}</b> を追加返済に回します。`);
+  if (r.loan > 0) steps.push(`固定支払額 ${yen(r.F)} を満たすため、差額 <b class="up">${yen(r.loan)}</b> を今月貸し付けます。`);
+  else if (r.net > r.F) steps.push(`本人報酬が固定支払額 ${yen(r.F)} を上回るため、貸付はありません。`);
+  if (r.P > 0) steps.push(`先払い済みの ${yen(r.P)}（うち報酬 ${yen(r.rewardInPrepay)}・貸付 ${yen(r.loanInPrepay)}）を差し引き、月末に <b>${yen(r.monthEnd)}</b> を振り込みます。`);
+  if (r.M > 0) steps.push(`本人から別途 <b class="down">${yen(r.M)}</b> の返済を受けます。`);
+  const diff = r.end - r.prev;
+  steps.push(`貸付残高は ${yen(r.prev)} → <b>${yen(r.end)}</b>（${diff>=0?"+":"−"}${yen(Math.abs(diff))}）。`);
+  $("rSteps").innerHTML = steps.map(s=>`<li>${s}</li>`).join("");
+
+  const rows = [
+    ["本人報酬（支払）", r.net, "", r.P ? [["うち先払い済み", r.rewardInPrepay],["うち月末振込", r.rewardRemain]] : []],
+    ["貸付（補填）", r.loan, "", r.P ? [["うち先払い済み", r.loanInPrepay],["うち月末振込", r.loanRemain]] : []],
+  ];
+  const named = r.items.length > 1 || r.items[0].name !== UNCLASSIFIED;
+  if (named){
+    rows[0][3] = r.items.map(x=>[`${x.name}（報酬 ${yen(x.gross)} から）`, x.net]).concat(rows[0][3]);
+  }
+  let html = rows.map(([k,v,_,subs])=>`<tr><td>${k}</td><td>${yen(v)}</td></tr>` + subs.map(([a,b])=>`<tr class="sub"><td>${esc(a)}</td><td>${yen(b)}</td></tr>`).join("")).join("");
+  html += `<tr class="total"><td>今月渡す総額</td><td>${yen(r.total)}</td></tr>`;
+  html += `<tr><td>返済充当（報酬から差し引き）</td><td class="down">${yen(r.repay + r.extraAuto)}</td></tr>`;
+  if (named && r.repay + r.extraAuto) html += r.items.map(x=>`<tr class="sub"><td>${esc(x.name)}から</td><td>${yen(x.repay)}</td></tr>`).join("");
+  if (r.M) html += `<tr><td>本人からの追加返済</td><td class="down">${yen(r.M)}</td></tr>`;
+  $("rTable").innerHTML = html;
+  let notesHtml = r.notes.map(n=>`<div class="note">${esc(n)}</div>`).join("");
+  const trs = (e.transfers || []).filter(t=>t.amount > 0);
+  if (trs.length){
+    const paid = trs.reduce((a,t)=>a+t.amount,0), gap = r.total - paid;
+    notesHtml += `<div class="recon">振込記録 ${trs.length} 件・合計 <b>${yen(paid)}</b>　／　今月渡す総額 ${yen(r.total)}　→　${gap===0 ? '<b class="down">一致しています</b>' : gap>0 ? `あと <b class="up">${yen(gap)}</b> の振込が未記録です` : `記録が <b class="up">${yen(-gap)}</b> 多くなっています`}</div>`;
+  }
+  $("rNotes").innerHTML = notesHtml;
+}
+
+/* ---------- 台帳・集計・グラフ ---------- */
+function renderLedger(){
+  const rows = buildLedger(months, settings);
+  const sum = k => rows.reduce((a,x)=>a+x.r[k],0);
+  const bal = rows.length ? rows[rows.length-1].r.end : toNum(settings.startBalance);
+  $("kBalance").textContent = yen(bal);
+  $("kLoan").textContent = yen(sum("loan"));
+  $("kRepay").textContent = yen(sum("repayTotal"));
+  $("kReward").textContent = yen(sum("net"));
+
+  const tb = $("ledger");
+  if (!rows.length){
+    tb.innerHTML = `<tbody><tr><td class="empty" colspan="11">まだ記録がありません。上の「今月の計算」で月と報酬額を入れて「この月を台帳に保存」を押すと、ここに1行ずつ溜まっていきます。</td></tr></tbody>`;
+    return;
+  }
+  const head = `<thead><tr><th>月</th><th>固定額</th><th>報酬</th><th>返済充当</th><th>本人報酬</th><th>貸付（補填）</th><th>先払い</th><th>月末振込</th><th>追加返済</th><th>残高</th><th class="memo">メモ</th></tr></thead>`;
+  const body = rows.map(({e,r})=>`<tr data-id="${esc(e.month)}" class="${e.month===editingId?"editing":""}" tabindex="0">
+    <td>${monthLabel(e.month)}</td><td>${yen(r.F)}</td><td>${yen(r.R)}</td><td class="down">${yen(r.repay+r.extraAuto)}</td><td>${yen(r.net)}</td>
+    <td class="up">${yen(r.loan)}</td><td>${r.P?yen(r.P):"—"}</td><td>${yen(r.monthEnd)}</td><td>${r.M?yen(r.M):"—"}</td><td class="bal">${yen(r.end)}</td><td class="memo" title="${esc(e.memo)}">${esc(e.memo)}</td></tr>`).join("");
+  const foot = `<tfoot><tr><td>合計</td><td>${yen(sum("F"))}</td><td>${yen(sum("R"))}</td><td>${yen(rows.reduce((a,x)=>a+x.r.repay+x.r.extraAuto,0))}</td><td>${yen(sum("net"))}</td><td>${yen(sum("loan"))}</td><td>${yen(sum("P"))}</td><td>${yen(sum("monthEnd"))}</td><td>${yen(sum("M"))}</td><td>${yen(bal)}</td><td></td></tr></tfoot>`;
+  tb.innerHTML = head + `<tbody>${body}</tbody>` + foot;
+}
+function openRow(id){
+  const e = months.find(m=>m.month===id); if (!e) return;
+  editingId = id; fillForm(e); updateEditState(); renderCalc(); renderLedger();
+  $("entryForm").scrollIntoView({behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block:"start"});
+}
+
+function renderChart(){
+  const rows = buildLedger(months, settings);
+  const box = $("chart");
+  if (!rows.length){ box.innerHTML = `<div class="empty">月を保存すると、ここに残高の推移が表示されます。</div>`; $("chartNote").textContent=""; return; }
+  const pts = [{label:"開始", v:toNum(settings.startBalance)}].concat(rows.map(x=>({label:monthLabel(x.e.month).replace(/^\d+年/,""), full:monthLabel(x.e.month), v:x.r.end, loan:x.r.loan, repay:x.r.repayTotal})));
+  const W = Math.max(560, pts.length*64), H = 240, L = 64, Rm = 16, T = 16, B = 32;
+  const max = Math.max(1, ...pts.map(p=>p.v)); const nice = niceMax(max);
+  const x = i => L + (pts.length===1 ? 0 : i*(W-L-Rm)/(pts.length-1));
+  const y = v => T + (H-T-B) * (1 - v/nice);
+  let g = "";
+  for (let k=0;k<=4;k++){ const v = nice*k/4; g += `<line x1="${L}" x2="${W-Rm}" y1="${y(v)}" y2="${y(v)}" stroke="var(--line)" stroke-width="1"/><text x="${L-8}" y="${y(v)+4}" text-anchor="end">${man(v)}</text>`; }
+  const line = pts.map((p,i)=>`${i?"L":"M"}${x(i)},${y(p.v)}`).join(" ");
+  const area = `${line} L${x(pts.length-1)},${y(0)} L${x(0)},${y(0)} Z`;
+  const labels = pts.map((p,i)=>`<text x="${x(i)}" y="${H-10}" text-anchor="middle">${esc(p.label)}</text>`).join("");
+  const dots = pts.map((p,i)=>`<circle cx="${x(i)}" cy="${y(p.v)}" r="${i===pts.length-1?5:3}" fill="var(--loan)" stroke="var(--paper)" stroke-width="2"><title>${esc(p.full||"開始時点")}：${yen(p.v)}</title></circle>`).join("");
+  const last = pts[pts.length-1];
+  box.innerHTML = `<svg viewBox="0 0 ${W} ${H}" width="100%" style="min-width:${Math.min(W,560)}px;display:block" role="img" aria-label="貸付残高の推移">
+    ${g}<path d="${area}" fill="var(--loan)" opacity=".12"/><path d="${line}" fill="none" stroke="var(--loan)" stroke-width="2.5" stroke-linejoin="round"/>${dots}${labels}
+    <text x="${Math.min(x(pts.length-1), W-Rm-4)}" y="${Math.max(12,y(last.v)-10)}" text-anchor="end" style="fill:var(--ink);font-weight:700">${yen(last.v)}</text></svg>`;
+  const first = pts[0].v;
+  $("chartNote").textContent = `${rows.length}か月で ${last.v>=first?"+":"−"}${yen(Math.abs(last.v-first))}`;
+}
+function niceMax(v){ const p = Math.pow(10, Math.floor(Math.log10(v))); for (const m of [1,1.5,2,2.5,3,4,5,6,8,10]) if (m*p >= v) return m*p; return 10*p; }
+
+function renderSettings(){
+  $("sName").value = settings.name || "";
+  $("sFixed").value = fmtInput(settings.defaultFixed);
+  $("sRuleType").value = settings.ruleType;
+  $("sRuleValue").value = settings.ruleType === "pct" ? settings.ruleValue : fmtInput(settings.ruleValue);
+  $("sStart").value = fmtInput(settings.startBalance);
+  $("sSurplus").value = settings.surplusMode;
+  $("acctsBox").innerHTML = ""; (settings.accounts || []).forEach(addAcctRow);
+  $("sFrom").value = ""; $("sTo").value = ""; syncDefaultAcctSelects();
+  syncSettingsRule();
+}
+function syncSettingsRule(){
+  const pct = $("sRuleType").value === "pct";
+  $("sRuleWrap").classList.toggle("pct", pct);
+  $("sRuleLabel").textContent = pct ? "報酬に対する割合" : "毎月の充当額";
+}
+function renderHeader(){
+  $("title").textContent = settings.name ? `${settings.name}の返済・補填台帳` : "返済・補填台帳";
+  $("fFixed").placeholder = fmtInput(settings.defaultFixed);
+  $("fixedHint").textContent = `空欄なら設定値（${yen(settings.defaultFixed)}）`;
+}
+function renderAll(){
+  renderHeader(); syncRuleField(); updateEditState(); renderCalc(); renderLedger(); renderMatrix(); renderHistory(); renderChart(); refreshAccountSelects();
+  $("itemNames").innerHTML = knownItemNames().map(n=>`<option value="${esc(n)}"></option>`).join("");
+}
+
+/* ---------- 振込履歴 ---------- */
+function allTransfers(){
+  const list = [];
+  months.forEach(m=>(m.transfers || []).forEach(t=>list.push({ ...t, month: m.month })));
+  return list.sort((a,b)=>(b.date || b.month).localeCompare(a.date || a.month));
+}
+function fmtDate(d){ if (!d) return "日付なし"; const [y,m,dd] = d.split("-"); return `${y}/${Number(m)}/${Number(dd)}`; }
+function renderHistory(){
+  const list = allTransfers(), tb = $("history");
+  if (!list.length){ tb.innerHTML = `<tbody><tr><td class="empty">月の計算欄で「振込を追加」から支払日・金額・振込元・振込先を入れて保存すると、ここに新しい順で並びます。</td></tr></tbody>`; return; }
+  tb.innerHTML = `<thead><tr><th>支払日</th><th class="memo">対象月</th><th class="memo">種類</th><th>金額</th><th class="memo">振込元</th><th class="memo">振込先</th><th class="memo">メモ</th></tr></thead><tbody>` +
+    list.map(t=>`<tr data-id="${esc(t.month)}" tabindex="0"><td>${fmtDate(t.date)}</td><td class="memo">${monthLabel(t.month)}</td><td class="memo">${KINDS[t.kind] || "その他"}</td><td>${yen(t.amount)}</td><td class="memo flow">${esc(transferWho(t,"from"))}</td><td class="memo flow">→ ${esc(transferWho(t,"to"))}</td><td class="memo" title="${esc(t.memo)}">${esc(t.memo)}</td></tr>`).join("") +
+    `</tbody><tfoot><tr><td>合計</td><td></td><td></td><td>${yen(list.reduce((a,t)=>a+t.amount,0))}</td><td></td><td></td><td></td></tr></tfoot>`;
+}
+
+/* ---------- 内訳マトリクス（月 × 内訳 × 内訳の内訳） ---------- */
+const expanded = new Set(["net"]);
+function matrixGroups(rows){
+  const names = [];
+  rows.forEach(({r})=>r.items.forEach(x=>{ if (!names.includes(x.name)) names.push(x.name); }));
+  const byItem = (r, n, k) => { const it = r.items.find(x=>x.name===n); return it ? it[k] : 0; };
+  return [
+    { key:"total", label:"渡した総額", value:r=>r.total,
+      subs:[["先払い", r=>r.P], ["月末振込", r=>r.monthEnd]] },
+    { key:"net", label:"本人報酬", value:r=>r.net,
+      subs: names.map(n=>[n, r=>byItem(r,n,"net")]) },
+    { key:"loan", label:"貸付（補填）", value:r=>r.loan,
+      subs:[["先払い分", r=>r.loanInPrepay], ["月末振込分", r=>r.loanRemain]] },
+    { key:"repay", label:"返済", value:r=>r.repayTotal,
+      subs: names.map(n=>[`${n}から`, r=>byItem(r,n,"repay")]).concat([["本人からの追加返済", r=>r.M]]) },
+    { key:"gross", label:"報酬総額", value:r=>r.R,
+      subs: names.map(n=>[n, r=>byItem(r,n,"gross")]) },
+  ];
+}
+function renderMatrix(){
+  const rows = buildLedger(months, settings);
+  const tb = $("matrix");
+  if (!rows.length){ tb.innerHTML = `<tbody><tr><td class="empty">月を保存すると、月ごとの内訳がここに並びます。</td></tr></tbody>`; return; }
+  const groups = matrixGroups(rows);
+  const cols = []; // [{g, sub|null, fn, first}]
+  groups.forEach(g=>{
+    if (expanded.has(g.key) && g.subs.length){
+      cols.push({ g, sub:"計", fn:g.value, first:true, total:true });
+      g.subs.forEach(([n,fn])=>cols.push({ g, sub:n, fn, first:false }));
+    } else cols.push({ g, sub:null, fn:g.value, first:true });
+  });
+  const h1 = `<tr><th rowspan="2">月</th>` + groups.map(g=>{
+    const open = expanded.has(g.key) && g.subs.length;
+    const span = open ? g.subs.length + 1 : 1;
+    return `<th class="grp" colspan="${span}" ${open?"":'rowspan="2"'}><button type="button" data-g="${g.key}" aria-expanded="${open?"true":"false"}">${open?"▾":"▸"} ${g.label}</button></th>`;
+  }).join("") + `</tr>`;
+  const h2 = `<tr>` + cols.filter(c=>c.sub!==null).map(c=>`<th class="${c.total?"g0":"sub"}">${esc(c.sub)}</th>`).join("") + `</tr>`;
+  const cell = (c, v) => `<td class="${c.first?"g0 ":""}${c.sub && !c.total?"sub ":""}${v?"":"zero"}">${v?yen(v):"—"}</td>`;
+  const body = rows.map(({e,r})=>`<tr data-id="${esc(e.month)}" tabindex="0"><td>${monthLabel(e.month)}</td>${cols.map(c=>cell(c, c.fn(r))).join("")}</tr>`).join("");
+  const foot = `<tr><td>合計</td>${cols.map(c=>cell(c, rows.reduce((a,x)=>a+c.fn(x.r),0))).join("")}</tr>`;
+  tb.innerHTML = `<thead>${h1}${h2}</thead><tbody>${body}</tbody><tfoot>${foot}</tfoot>`;
+}
+
+/* ---------- イベント ---------- */
+function flash(id, msg){ const el=$(id); el.textContent = msg; clearTimeout(el._t); el._t = setTimeout(()=>{el.textContent="";}, 3500); }
+$("entryForm").addEventListener("input", e=>{ if (e.target.id==="fRuleType") syncRuleField(); if (e.target.id==="fMonth"){ if (editingId && $("fMonth").value!==editingId) editingId=null; updateEditState(); } renderCalc(); });
+$("entryForm").addEventListener("change", e=>{ if (e.target.id==="fRuleType"){ syncRuleField(); renderCalc(); } });
+document.querySelectorAll(".yen input").forEach(inp=>inp.addEventListener("blur", ()=>{ if (inp.closest(".pct")) return; if (hasVal(inp.value)) inp.value = fmtInput(toNum(inp.value)) || "0"; }));
+$("entryForm").addEventListener("submit", async ev=>{
+  ev.preventDefault();
+  const m = readForm();
+  if (!m.month){ flash("toast","対象月を選んでください。"); return; }
+  if (m.ruleType === "default" || m.ruleType === "none") m.ruleValue = null;
+  $("saveBtn").disabled = true;
+  try {
+    if (editingId && editingId !== m.month) await removeMonth(editingId);
+    await persistMonth(m);
+    editingId = m.month; flash("toast", `${monthLabel(m.month)}を保存しました。`);
+  } catch(err){ flash("toast", err && err.code==="quota_exceeded" ? "保存容量の上限です。古い月を削除してから保存してください。" : "保存できませんでした。もう一度お試しください。"); }
+  finally { $("saveBtn").disabled = false; updateEditState(); renderLedger(); }
+});
+$("newBtn").addEventListener("click", ()=>{ startNew(); renderLedger(); });
+$("delBtn").addEventListener("click", ()=>{ $("delConfirm").hidden = false; });
+$("delNo").addEventListener("click", ()=>{ $("delConfirm").hidden = true; });
+$("delYes").addEventListener("click", async ()=>{
+  const id = editingId; if (!id) return;
+  try { await removeMonth(id); flash("toast", `${monthLabel(id)}を削除しました。`); startNew(); renderLedger(); }
+  catch(_){ flash("toast","削除できませんでした。"); }
+});
+$("ledger").addEventListener("click", e=>{ const tr = e.target.closest("tr[data-id]"); if (tr) openRow(tr.dataset.id); });
+$("ledger").addEventListener("keydown", e=>{ if (e.key==="Enter"){ const tr = e.target.closest("tr[data-id]"); if (tr) openRow(tr.dataset.id); } });
+$("sRuleType").addEventListener("change", syncSettingsRule);
+$("addTransfer").addEventListener("click", ()=>{ addTransferRow({ date: todayStr(), kind:"monthEnd" }).querySelector("input").focus(); });
+$("addMonthEnd").addEventListener("click", ()=>{
+  const e = readForm(); const r = calcMonth(e, settings, prevBalanceFor(e.month || "9999-99"));
+  addTransferRow({ date: todayStr(), kind:"monthEnd", amount: r.monthEnd, memo:"" }); syncPrepayFromTransfers(); renderCalc();
+});
+$("transfersBox").addEventListener("input", ()=>syncPrepayFromTransfers());
+$("transfersBox").addEventListener("change", ()=>{ syncPrepayFromTransfers(); renderCalc(); });
+$("addAcct").addEventListener("click", ()=>{ addAcctRow({}).querySelector("input").focus(); syncDefaultAcctSelects(); });
+$("acctsBox").addEventListener("input", ()=>syncDefaultAcctSelects());
+$("history").addEventListener("click", e=>{ const tr = e.target.closest("tr[data-id]"); if (tr) openRow(tr.dataset.id); });
+$("copyTrBtn").addEventListener("click", ()=>{
+  const rows = allTransfers().map(t=>[t.date, t.month, KINDS[t.kind]||"その他", t.amount, transferWho(t,"from"), transferWho(t,"to"), t.memo||""].join("\t"));
+  const text = ["支払日\t対象月\t種類\t金額\t振込元\t振込先\tメモ"].concat(rows).join("\n");
+  navigator.clipboard.writeText(text).then(()=>flash("hToast","履歴をコピーしました。"), ()=>flash("hToast","コピーできませんでした。"));
+});
+$("addItem").addEventListener("click", ()=>{ addItemRow("", "").querySelector("input").focus(); });
+$("itemsBox").addEventListener("input", ()=>{ syncRewardFromItems(); });
+$("matrix").addEventListener("click", e=>{
+  const b = e.target.closest("button[data-g]");
+  if (b){ const k = b.dataset.g; expanded.has(k) ? expanded.delete(k) : expanded.add(k); renderMatrix(); return; }
+  const tr = e.target.closest("tr[data-id]"); if (tr) openRow(tr.dataset.id);
+});
+$("expandAll").addEventListener("click", ()=>{ ["total","net","loan","repay","gross"].forEach(k=>expanded.add(k)); renderMatrix(); });
+$("collapseAll").addEventListener("click", ()=>{ expanded.clear(); renderMatrix(); });
+$("settingsForm").addEventListener("submit", async ev=>{
+  ev.preventDefault();
+  const s = { name:$("sName").value.trim(), defaultFixed:toNum($("sFixed").value), ruleType:$("sRuleType").value,
+    ruleValue:toNum($("sRuleValue").value), startBalance:toNum($("sStart").value), surplusMode:$("sSurplus").value,
+    accounts: readAccts(), defaultFrom: $("sFrom").value, defaultTo: $("sTo").value };
+  try { await persistSettings(s); flash("sToast","設定を保存しました。"); } catch(_){ flash("sToast","保存できませんでした。"); }
+});
+
+function csvText(){
+  const rows = buildLedger(months, settings);
+  const head = ["月","固定支払額","報酬","返済充当","本人報酬","貸付(補填)","先払い","うち報酬分","月末振込","追加返済","月初残高","月末残高","メモ","報酬の内訳"];
+  const lines = rows.map(({e,r})=>[e.month,r.F,r.R,r.repay+r.extraAuto,r.net,r.loan,r.P,r.rewardInPrepay,r.monthEnd,r.M,r.prev,r.end,`"${String(e.memo||"").replace(/"/g,'""')}"`,`"${r.items.map(x=>`${x.name}:${x.gross}(返済${x.repay}/報酬${x.net})`).join(" / ").replace(/"/g,'""')}"`].join(","));
+  return [head.join(",")].concat(lines).join("\n");
+}
+$("copyBtn").addEventListener("click", ()=>{
+  const text = csvText().replace(/,/g,"\t");
+  navigator.clipboard.writeText(text).then(()=>flash("toast","表をコピーしました。スプレッドシートに貼り付けできます。"), ()=>flash("toast","コピーできませんでした。"));
+});
+$("csvBtn").hidden = true;
+
+/* ---------- 起動 ---------- */
+loadLocal();
+renderSettings(); startNew(); renderAll();
+$("storeBadge").textContent = "このブラウザに保存";
+const inClaude = !!(window.claude && typeof window.claude.use === "function");
+const localSnapshot = { settings: { ...settings }, months: months.slice() };
+
+/* Supabase（claude.ai の外で開いたとき） */
+async function loadFromSupabase(){
+  const sb = store.sb;
+  const [st, ms] = await Promise.all([
+    sb.from("ledger_settings").select("data").eq("user_id", store.uid).maybeSingle(),
+    sb.from("ledger_months").select("month,data").eq("user_id", store.uid)
+  ]);
+  if (st.error) throw st.error; if (ms.error) throw ms.error;
+  settings = { ...DEFAULT_SETTINGS, ...(st.data ? st.data.data : {}) };
+  months = (ms.data || []).map(r=>({ ...r.data, month: r.month }));
+  editingId = null; renderSettings(); startNew(); renderAll();
+  $("importBox").hidden = !(months.length === 0 && localSnapshot.months.length > 0);
+}
+async function onSession(session){
+  if (!session){
+    store = { mode:"supabase", sb: store.sb, uid: null };
+    document.body.classList.add("locked");
+    $("userEmail").hidden = true; $("logoutBtn").hidden = true; $("importBox").hidden = true;
+    $("storeBadge").textContent = "ログインしてください";
+    return;
+  }
+  if (store.uid === session.user.id) return;
+  store = { mode:"supabase", sb: store.sb, uid: session.user.id };
+  document.body.classList.remove("locked");
+  $("userEmail").textContent = session.user.email || ""; $("userEmail").hidden = false; $("logoutBtn").hidden = false;
+  $("storeBadge").textContent = "読み込み中…";
+  try { await loadFromSupabase(); $("storeBadge").textContent = "クラウドに保存（どの端末からも同じ台帳）"; }
+  catch(_){ $("storeBadge").textContent = "読み込めませんでした。再読み込みしてください"; }
+}
+function authError(err){
+  const m = String(err && err.message || "");
+  if (/Invalid login credentials/i.test(m)) return "メールアドレスかパスワードが違います。";
+  if (/Email not confirmed/i.test(m)) return "確認メールのリンクを開いてから、もう一度ログインしてください。";
+  if (/already registered/i.test(m)) return "このメールアドレスは登録済みです。ログインしてください。";
+  if (/Password should be/i.test(m)) return "パスワードは8文字以上にしてください。";
+  return "うまくいきませんでした：" + m;
+}
+if (!inClaude && SUPABASE_URL && SUPABASE_ANON_KEY && window.supabase){
+  store = { mode:"supabase", sb: window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY), uid: null };
+  document.body.classList.add("locked");
+  store.sb.auth.onAuthStateChange((_ev, session)=>{ setTimeout(()=>onSession(session), 0); });
+  store.sb.auth.getSession().then(({ data })=>onSession(data.session));
+  $("authForm").addEventListener("submit", async ev=>{
+    ev.preventDefault(); $("loginBtn").disabled = true;
+    const { error } = await store.sb.auth.signInWithPassword({ email: $("authEmail").value.trim(), password: $("authPass").value });
+    $("loginBtn").disabled = false;
+    if (error) $("authMsg").textContent = authError(error);
+  });
+  $("signupBtn").addEventListener("click", async ()=>{
+    if (!$("authForm").reportValidity()) return;
+    $("signupBtn").disabled = true;
+    const { data, error } = await store.sb.auth.signUp({ email: $("authEmail").value.trim(), password: $("authPass").value, options:{ emailRedirectTo: location.origin + location.pathname } });
+    $("signupBtn").disabled = false;
+    $("authMsg").textContent = error ? authError(error) : data.session ? "" : "確認メールを送りました。メール内のリンクを開くとログインできます。";
+  });
+  $("logoutBtn").addEventListener("click", ()=>store.sb.auth.signOut());
+  $("importBtn").addEventListener("click", async ()=>{
+    $("importBtn").disabled = true;
+    try {
+      const uid = store.uid, sb = store.sb;
+      await sbCheck(await sb.from("ledger_settings").upsert({ user_id: uid, data: localSnapshot.settings }, { onConflict:"user_id" }));
+      await sbCheck(await sb.from("ledger_months").upsert(localSnapshot.months.map(m=>({ user_id: uid, month: m.month, data: m })), { onConflict:"user_id,month" }));
+      await loadFromSupabase(); flash("toast", `${localSnapshot.months.length}か月分を取り込みました。`);
+    } catch(_){ $("importBtn").disabled = false; flash("toast", "取り込めませんでした。もう一度お試しください。"); }
+  });
+}
+if (!inClaude){
+  $("csvBtn").hidden = false;
+  $("csvBtn").addEventListener("click", ()=>{
+    const blob = new Blob(["\uFEFF" + csvText()], { type:"text/csv" });
+    const a = document.createElement("a"); a.href = URL.createObjectURL(blob);
+    a.download = `返済台帳_${new Date().toISOString().slice(0,10)}.csv`; a.click();
+    setTimeout(()=>URL.revokeObjectURL(a.href), 1000);
+  });
+}
+
+(async ()=>{
+  const cl = window.claude;
+  if (!inClaude) return;
+  const [db, downloads] = await Promise.all([cl.use("db").catch(()=>null), cl.use("downloads").catch(()=>null)]);
+  if (downloads){
+    $("csvBtn").hidden = false;
+    $("csvBtn").addEventListener("click", async ()=>{
+      try { await downloads.save({ filename:`返済台帳_${new Date().toISOString().slice(0,10)}.csv`, data:"\uFEFF"+csvText() }); }
+      catch(err){ if (err && err.code === "unavailable") $("csvBtn").hidden = true; }
+    });
+  }
+  if (!db) return;
+  store = { mode:"db", db };
+  $("storeBadge").textContent = "クラウドに保存（どの端末からも同じ台帳）";
+  let firstMonths = true;
+  db.doc("config/settings").onSnapshot(snap=>{
+    settings = { ...DEFAULT_SETTINGS, ...(snap.exists ? snap.data() : {}) };
+    renderSettings(); renderAll();
+  }, ()=>{});
+  db.collection("months").onSnapshot(snap=>{
+    months = snap.docs.map(d=>({ ...d.data(), month: d.id }));
+    if (firstMonths){ firstMonths = false; if (!editingId) startNew(); }
+    renderAll();
+  }, ()=>{ $("storeBadge").textContent = "接続が切れました。再読み込みしてください"; });
+})();
+</script>
+
+</body>
+</html>
