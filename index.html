@@ -132,6 +132,9 @@ table.ledger.projs td.who{text-align:left;white-space:normal;min-width:200px}
 table.ledger.projs td.who b{display:block;color:var(--ink)}
 table.projs td.who span{font-size:.8rem;color:var(--muted)}
 table.projs tr.done td{opacity:.6}
+.simple .calc-only{display:none!important}
+.simple-only{display:none!important}
+.simple .simple-only{display:grid!important}
 .tag{display:inline-block;font-size:.72rem;padding:1px 8px;border-radius:99px;white-space:nowrap}
 .tag.ok{background:var(--soft);color:var(--repay);border:1px solid var(--repay)}
 .tag.todo{background:var(--warn-bg);color:var(--warn-ink)}
@@ -191,10 +194,13 @@ details summary{cursor:pointer;font-family:var(--font-display);font-weight:700;f
         <div class="field"><label for="pTitle">何の（返済・案件の内容）</label><input id="pTitle" maxlength="60" placeholder="例：車のローン立替"></div>
       </div>
       <div class="row">
-        <div class="field"><label for="pFixed">毎月の固定支払額</label><div class="yen"><input id="pFixed" inputmode="numeric" placeholder="400,000"></div></div>
-        <div class="field"><label for="pStart">開始時点の貸付残高</label><div class="yen"><input id="pStart" inputmode="numeric" placeholder="0"></div></div>
+        <div class="field"><label for="pMode">毎月の入力方法</label><select id="pMode"><option value="simple">返済額を直接入力</option><option value="calc">報酬から計算する</option></select></div>
+        <div class="field"><label for="pStart" id="pStartLabel">借入額（返済前の残高）</label><div class="yen"><input id="pStart" inputmode="numeric" placeholder="0"></div></div>
       </div>
-      <div class="row">
+      <div class="row calc-only">
+        <div class="field"><label for="pFixed">毎月の固定支払額</label><div class="yen"><input id="pFixed" inputmode="numeric" placeholder="400,000"></div></div>
+      </div>
+      <div class="row calc-only">
         <div class="field"><label for="pRuleType">返済充当の方式</label><select id="pRuleType"><option value="amt">固定額</option><option value="pct">報酬の割合</option></select></div>
         <div class="field"><label for="pRuleValue" id="pRuleLabel">毎月の充当額</label><div class="yen" id="pRuleWrap"><input id="pRuleValue" inputmode="decimal" placeholder="100,000"></div></div>
       </div>
@@ -220,7 +226,7 @@ details summary{cursor:pointer;font-family:var(--font-display);font-weight:700;f
     <div class="kpi"><span>累計 貸付（補填）</span><b id="kLoan">0円</b></div>
   </section>
 
-  <section class="panel pv">
+  <section class="panel pv" id="calcPanel">
     <div class="sectionhead">
       <h2 id="calcTitle">今月の計算</h2>
       <span class="muted small" id="editState">新しい月を入力中</span>
@@ -229,16 +235,16 @@ details summary{cursor:pointer;font-family:var(--font-display);font-weight:700;f
       <form class="form" id="entryForm" autocomplete="off">
         <div class="row">
           <div class="field"><label for="fMonth">対象月</label><input type="month" id="fMonth" required></div>
-          <div class="field"><label for="fFixed">固定支払額</label><div class="yen"><input id="fFixed" inputmode="numeric" placeholder="設定値"></div><span class="hint" id="fixedHint">空欄なら設定値</span></div>
+          <div class="field calc-only"><label for="fFixed">固定支払額</label><div class="yen"><input id="fFixed" inputmode="numeric" placeholder="設定値"></div><span class="hint" id="fixedHint">空欄なら設定値</span></div>
         </div>
-        <div class="field"><label for="fReward">その月の実際の報酬額（インセンティブ等）</label><div class="yen"><input id="fReward" inputmode="numeric" placeholder="0"></div><span class="hint" id="rewardHint">下で内訳を入れると、その合計が自動で入ります</span></div>
-        <fieldset>
+        <div class="field calc-only"><label for="fReward">その月の実際の報酬額（インセンティブ等）</label><div class="yen"><input id="fReward" inputmode="numeric" placeholder="0"></div><span class="hint" id="rewardHint">下で内訳を入れると、その合計が自動で入ります</span></div>
+        <fieldset class="calc-only">
           <legend>報酬の内訳（任意）</legend>
           <div class="items" id="itemsBox"></div>
           <div><button type="button" class="link" id="addItem">＋ 内訳を追加</button></div>
           <datalist id="itemNames"></datalist>
         </fieldset>
-        <fieldset>
+        <fieldset class="calc-only">
           <legend>返済への充当ルール</legend>
           <div class="row">
             <div class="field"><label for="fRuleType">方式</label>
@@ -246,7 +252,7 @@ details summary{cursor:pointer;font-family:var(--font-display);font-weight:700;f
             <div class="field"><label for="fRuleValue" id="ruleValueLabel">値</label><div class="yen" id="ruleValueWrap"><input id="fRuleValue" inputmode="decimal"></div></div>
           </div>
         </fieldset>
-        <fieldset>
+        <fieldset class="calc-only">
           <legend>先払い（月末の振込より前に渡した分）</legend>
           <div class="row">
             <div class="field"><label for="fPrepay">先払い額</label><div class="yen"><input id="fPrepay" inputmode="numeric" placeholder="0"></div><span class="hint" id="prepayHint">振込記録の「先払い」から自動で入ります</span></div>
@@ -254,13 +260,13 @@ details summary{cursor:pointer;font-family:var(--font-display);font-weight:700;f
           </div>
         </fieldset>
         <fieldset>
-          <legend>振込の記録（支払日・振込元・振込先）</legend>
+          <legend id="trLegend">振込の記録（支払日・振込元・振込先）</legend>
           <div class="transfers" id="transfersBox"></div>
-          <div class="btns"><button type="button" class="link" id="addTransfer">＋ 振込を追加</button><button type="button" class="link" id="addMonthEnd">計算どおりの月末振込を追加</button></div>
-          <span class="hint" id="acctHint">口座は下の「基本設定」で登録すると選べるようになります。</span>
+          <div class="btns"><button type="button" class="link" id="addTransfer">＋ 振込を追加</button><button type="button" class="link calc-only" id="addMonthEnd">計算どおりの月末振込を追加</button></div>
+          <span class="hint" id="acctHint">口座は下の「このプロジェクトの設定」で登録すると選べるようになります。</span>
         </fieldset>
         <div class="row">
-          <div class="field"><label for="fManual">本人からの追加返済</label><div class="yen"><input id="fManual" inputmode="numeric" placeholder="0"></div><span class="hint">現金などで別途返してもらった額</span></div>
+          <div class="field calc-only"><label for="fManual">本人からの追加返済</label><div class="yen"><input id="fManual" inputmode="numeric" placeholder="0"></div><span class="hint">現金などで別途返してもらった額</span></div>
           <div class="field"><label for="fMemo">メモ</label><input id="fMemo" maxlength="120" placeholder="例：賞与月"></div>
         </div>
         <div class="btns">
@@ -273,22 +279,26 @@ details summary{cursor:pointer;font-family:var(--font-display);font-weight:700;f
       </form>
 
       <div class="result" aria-live="polite">
-        <div class="bigline">
+        <div class="bigline simple-only">
+          <div class="big"><span id="sPaidLabel">この月の返済額</span><b id="sPaid" class="down">0円</b></div>
+          <div class="big"><span>返済後の残高</span><b id="sEnd">0円</b><span id="sCum"></span></div>
+        </div>
+        <div class="bigline calc-only">
           <div class="big"><span>今月渡す総額</span><b id="rTotal">0円</b></div>
           <div class="big"><span>月末に振り込む額</span><b id="rMonthEnd">0円</b><span id="rMonthEndSub"></span></div>
         </div>
-        <div>
+        <div class="calc-only">
           <div class="bar" id="rBar" aria-hidden="true"></div>
           <div class="legend" style="margin-top:6px"><span><i class="c-reward"></i>本人報酬</span><span><i class="c-loan"></i>貸付（補填）</span><span class="muted">返済充当は報酬から差し引くため、渡す総額には含まれません</span></div>
         </div>
         <ol class="steps" id="rSteps"></ol>
-        <table class="breakdown" id="rTable"></table>
+        <table class="breakdown calc-only" id="rTable"></table>
         <div id="rNotes" style="display:grid;gap:8px"></div>
       </div>
     </div>
   </section>
 
-  <section class="panel pv">
+  <section class="panel pv" id="matrixPanel">
     <div class="sectionhead">
       <h2>内訳マトリクス</h2>
       <div class="btns"><button type="button" class="link" id="expandAll">すべて展開</button><button type="button" class="link" id="collapseAll">すべて閉じる</button></div>
@@ -307,7 +317,7 @@ details summary{cursor:pointer;font-family:var(--font-display);font-weight:700;f
   </section>
 
   <section class="panel pv">
-    <div class="sectionhead"><h2>貸付残高の推移</h2><span class="muted small" id="chartNote"></span></div>
+    <div class="sectionhead"><h2 id="chartTitle">貸付残高の推移</h2><span class="muted small" id="chartNote"></span></div>
     <div class="chartbox" id="chart"></div>
   </section>
 
@@ -329,17 +339,20 @@ details summary{cursor:pointer;font-family:var(--font-display);font-weight:700;f
           <div class="field"><label for="sTitle">何の（返済・案件の内容）</label><input id="sTitle" maxlength="60" placeholder="例：車のローン立替"></div>
         </div>
         <div class="row">
-          <div class="field"><label for="sFixed">毎月の固定支払額</label><div class="yen"><input id="sFixed" inputmode="numeric"></div></div>
+          <div class="field"><label for="sMode">毎月の入力方法</label><select id="sMode"><option value="simple">返済額を直接入力</option><option value="calc">報酬から計算する</option></select></div>
           <div class="field"><label for="sStatus">状態</label><select id="sStatus"><option value="active">進行中</option><option value="done">完了</option></select></div>
         </div>
+        <div class="row calc-only">
+          <div class="field"><label for="sFixed">毎月の固定支払額</label><div class="yen"><input id="sFixed" inputmode="numeric"></div></div>
+        </div>
         <div class="field"><label for="sMemo">メモ</label><input id="sMemo" maxlength="120" placeholder="任意"></div>
-        <div class="row">
+        <div class="row calc-only">
           <div class="field"><label for="sRuleType">返済充当の方式</label><select id="sRuleType"><option value="amt">固定額（例：毎月10万円）</option><option value="pct">報酬の割合（例：50%）</option></select></div>
           <div class="field"><label for="sRuleValue" id="sRuleLabel">充当額</label><div class="yen" id="sRuleWrap"><input id="sRuleValue" inputmode="decimal"></div></div>
         </div>
         <div class="row">
-          <div class="field"><label for="sStart">開始時点の貸付残高</label><div class="yen"><input id="sStart" inputmode="numeric" placeholder="0"></div><span class="hint">ツールを使い始める前からの借金</span></div>
-          <div class="field"><label for="sSurplus">報酬が固定額を上回った月</label><select id="sSurplus"><option value="pay">上回った分も全額支払う</option><option value="repay">上回った分を追加返済に回す</option></select></div>
+          <div class="field"><label for="sStart" id="sStartLabel">開始時点の貸付残高</label><div class="yen"><input id="sStart" inputmode="numeric" placeholder="0"></div><span class="hint">ツールを使い始める前からの借金</span></div>
+          <div class="field calc-only"><label for="sSurplus">報酬が固定額を上回った月</label><select id="sSurplus"><option value="pay">上回った分も全額支払う</option><option value="repay">上回った分を追加返済に回す</option></select></div>
         </div>
         <fieldset>
           <legend>口座の登録</legend>
@@ -358,7 +371,7 @@ details summary{cursor:pointer;font-family:var(--font-display);font-weight:700;f
     </details>
   </section>
 
-  <section class="panel small muted pv">
+  <section class="panel small muted pv" id="howPanel">
     <h2 style="font-size:1rem;color:var(--ink);margin-bottom:6px">計算のしくみ</h2>
     <p style="margin:0">報酬のうち充当ルール分を返済に回し、残りを本人報酬として支払います。本人報酬が固定支払額に届かない差額は、その月に貸し付けます。このため、報酬が固定額を下回る月は、返済充当の額に関わらず残高は「固定額 − 報酬額」だけ増えます（充当した分を同じ月に貸し戻す形になるため）。先払いは、その月に渡す総額の一部を前もって渡したものとして扱い、月末の振込額から差し引きます。</p>
   </section>
@@ -371,7 +384,7 @@ const SUPABASE_URL = "https://lcfsxvrlkeijygkellsz.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_a4jxgr5prKw4tSUHC4lGAg_ODTg8wtI";
 
 /* ---------- 計算ロジック ---------- */
-const DEFAULT_SETTINGS = { name:"", title:"", memo:"", status:"active", defaultFixed:400000, ruleType:"amt", ruleValue:100000, startBalance:0, surplusMode:"pay", accounts:[], defaultFrom:"", defaultTo:"" };
+const DEFAULT_SETTINGS = { name:"", title:"", memo:"", status:"active", inputMode:"simple", defaultFixed:400000, ruleType:"amt", ruleValue:100000, startBalance:0, surplusMode:"pay", accounts:[], defaultFrom:"", defaultTo:"" };
 
 function toNum(v){
   if (v === null || v === undefined) return 0;
@@ -381,6 +394,14 @@ function toNum(v){
 function hasVal(v){ return v !== null && v !== undefined && String(v).trim() !== ""; }
 
 function calcMonth(e, s, prev){
+  if (s.inputMode === "simple"){
+    // 返済額を直接入力する方式：その月の返済の記録を合計して残高から差し引く
+    const paid = (e.transfers || []).reduce((a,t)=>a+Math.max(0, toNum(t.amount)), 0);
+    const end = prev - paid;
+    return { simple:true, F:0, R:0, rt:"none", rv:0, repay:paid, net:0, loan:0, extraAuto:0, total:paid, P:0, rewardInPrepay:0, loanInPrepay:0,
+      monthEnd:paid, rewardRemain:0, loanRemain:0, M:0, prev, end, repayTotal:paid, items:[{ name:UNCLASSIFIED, gross:0, repay:paid, net:0 }],
+      notes: end < 0 ? [`返済額の合計が残高を ${yen(-end)} 上回っています。`] : [] };
+  }
   const notes = [];
   const F = Math.max(0, hasVal(e.fixed) ? toNum(e.fixed) : toNum(s.defaultFixed));
   const items = rewardItemsOf(e);
@@ -473,7 +494,7 @@ function esc(s){ return String(s ?? "").replace(/[&<>"']/g, c=>({"&":"&amp;","<"
 /* ---------- 状態と保存先 ----------
    meta: 全体の設定（口座とプロジェクト一覧）。allMonths: 全プロジェクトの月次記録（各行に project）。
    settings と months は、開いているプロジェクトの分だけを切り出したもの（画面の描画はこちらを使う）。 */
-const PROJECT_KEYS = ["id","name","title","memo","status","defaultFixed","ruleType","ruleValue","startBalance","surplusMode","defaultFrom","defaultTo","createdAt"];
+const PROJECT_KEYS = ["id","name","title","memo","status","inputMode","defaultFixed","ruleType","ruleValue","startBalance","surplusMode","defaultFrom","defaultTo","createdAt"];
 const LEGACY_ID = "main";   // プロジェクト機能より前の記録はこのプロジェクトに入る
 let meta = { accounts:[], projects:[] };
 let allMonths = [];
@@ -496,7 +517,7 @@ function normalizeMeta(raw){
   const hasLegacy = !Array.isArray(raw.projects) && Object.keys(raw).some(k=>k !== "accounts");
   const need = new Set(allMonths.map(pidOf)); if (hasLegacy) need.add(LEGACY_ID);
   need.forEach(id=>{ if (!m.projects.some(p=>p.id===id))
-    m.projects.push({ ...pick({ ...DEFAULT_SETTINGS, ...(id===LEGACY_ID ? raw : {}) }, PROJECT_KEYS), id, createdAt: 0 }); });
+    m.projects.push({ ...pick({ ...DEFAULT_SETTINGS, ...(id===LEGACY_ID ? { inputMode:"calc", ...raw } : { inputMode:"calc" }) }, PROJECT_KEYS), id, createdAt: 0 }); });
   meta = m;
 }
 function metaForSave(m){ return { accounts: m.accounts, projects: m.projects }; }
@@ -542,8 +563,10 @@ async function persistMeta(m){
   afterChange();
 }
 async function persistSettings(s){
+  const modeChanged = (s.inputMode || "simple") !== (settings.inputMode || "simple");
   await persistMeta({ accounts: s.accounts, projects: meta.projects.map(p=>p.id===cur ? { ...p, ...pick(s, PROJECT_KEYS), id: p.id } : p) });
   renderSettings();
+  if (modeChanged){ applyMode(); startNew(); renderLedger(); }
 }
 async function removeProject(id){
   const list = allMonths.filter(m=>pidOf(m)===id);
@@ -568,7 +591,7 @@ function renderDash(){
   const shown = $("showDone").checked ? all : active;
   $("projEmpty").hidden = all.length > 0;
   $("projWrap").hidden = all.length === 0;
-  $("projTable").innerHTML = `<thead><tr><th>誰の・何の</th><th>状態</th><th>今月</th><th>直近月</th><th>その月の返済額</th><th>累計返済額</th><th>記録した月数</th><th>貸付残高</th></tr></thead><tbody>` +
+  $("projTable").innerHTML = `<thead><tr><th>誰の・何の</th><th>状態</th><th>今月</th><th>直近月</th><th>その月の返済額</th><th>累計返済額</th><th>記録した月数</th><th>残高</th></tr></thead><tbody>` +
     (shown.length ? shown.map(x=>`<tr data-pid="${esc(x.p.id)}" tabindex="0" class="${x.done?"done":""}">
       <td class="who"><b>${esc(x.p.name || "（対象者未設定）")}</b><span>${esc(x.p.title || "内容未設定")}${x.p.memo ? "・" + esc(x.p.memo) : ""}</span></td>
       <td>${x.done ? '<span class="tag off">完了</span>' : '<span class="tag ok">進行中</span>'}</td>
@@ -665,7 +688,7 @@ function knownItemNames(){
   return seen;
 }
 /* ---------- 振込の記録・口座 ---------- */
-const KINDS = { prepay:"先払い", monthEnd:"月末振込", other:"その他" };
+const KINDS = { repay:"返済", prepay:"先払い", monthEnd:"月末振込", other:"その他" };
 function accountLabel(a){
   if (!a) return "";
   if (a.holder && a.bank) return `${a.holder}の${a.bank}`;
@@ -685,7 +708,7 @@ function todayStr(){ const d = new Date(); return `${d.getFullYear()}-${String(d
 function addTransferRow(t){
   const i = trSeq++;
   const row = document.createElement("div"); row.className = "transfer";
-  row.innerHTML = `<div class="head2"><span>振込</span><button type="button" class="link del">削除</button></div>
+  row.innerHTML = `<div class="head2"><span>${isSimple() ? "返済" : "振込"}</span><button type="button" class="link del">削除</button></div>
     <div class="row">
       <div class="field"><label for="trDate${i}">支払日</label><input type="date" id="trDate${i}"></div>
       <div class="field"><label for="trAmt${i}">金額</label><div class="yen"><input id="trAmt${i}" inputmode="numeric" placeholder="0"></div></div>
@@ -695,14 +718,14 @@ function addTransferRow(t){
       <div class="field"><label for="trTo${i}">振込先</label><select id="trTo${i}"></select></div>
     </div>
     <div class="row">
-      <div class="field"><label for="trKind${i}">種類</label><select id="trKind${i}">${Object.entries(KINDS).map(([k,v])=>`<option value="${k}">${v}</option>`).join("")}</select></div>
+      <div class="field${isSimple() ? " calc-only" : ""}"><label for="trKind${i}">種類</label><select id="trKind${i}">${Object.entries(KINDS).map(([k,v])=>`<option value="${k}">${v}</option>`).join("")}</select></div>
       <div class="field"><label for="trMemo${i}">メモ</label><input id="trMemo${i}" maxlength="80" placeholder="例：振込手数料は当方負担"></div>
     </div>`;
   row.querySelector(`#trDate${i}`).value = t.date || "";
   row.querySelector(`#trAmt${i}`).value = t.amount ? fmtInput(t.amount) : "";
   fillAccountSelect(row.querySelector(`#trFrom${i}`), t.from ?? settings.defaultFrom);
   fillAccountSelect(row.querySelector(`#trTo${i}`), t.to ?? settings.defaultTo);
-  row.querySelector(`#trKind${i}`).value = t.kind || "monthEnd";
+  row.querySelector(`#trKind${i}`).value = t.kind || (isSimple() ? "repay" : "monthEnd");
   row.querySelector(`#trMemo${i}`).value = t.memo || "";
   const amt = row.querySelector(`#trAmt${i}`);
   amt.addEventListener("blur", ()=>{ if (hasVal(amt.value)) amt.value = fmtInput(toNum(amt.value)) || "0"; });
@@ -774,7 +797,8 @@ function nextMonth(){
 }
 function startNew(){
   editingId = null;
-  fillForm({ month: nextMonth(), ruleType:"default" });
+  fillForm({ month: nextMonth(), ruleType:"default", transfers: isSimple() ? [{ date: todayStr(), kind:"repay" }] : [] });
+  if (isSimple()){ updateEditState(); renderCalc(); return; }
   if (!months.length && !$("fReward").value) $("fReward").value = "200,000"; // 例：報酬20万円
   else { const last = months.slice().sort((a,b)=>b.month.localeCompare(a.month))[0]; // 前月の内訳名を引き継ぐ
     if (last) rewardItemsOf(last).forEach(x=>addItemRow(x.name, "")); }
@@ -805,6 +829,21 @@ function prevBalanceFor(month){
 function renderCalc(){
   const e = readForm();
   const r = calcMonth(e, settings, prevBalanceFor(e.month || "9999-99"));
+  if (r.simple){
+    const before = buildLedger(months.filter(m=>m.month < (e.month || "9999-99")), settings).reduce((a,x)=>a+x.r.repayTotal, 0);
+    const n = (e.transfers || []).filter(t=>t.amount > 0).length;
+    $("sPaidLabel").textContent = e.month ? `${monthLabel(e.month)}の返済額` : "この月の返済額";
+    $("sPaid").textContent = yen(r.repayTotal);
+    $("sEnd").textContent = yen(r.end);
+    $("sCum").textContent = `累計返済額 ${yen(before + r.repayTotal)}`;
+    $("rSteps").innerHTML = [
+      `前月までの残高は <b>${yen(r.prev)}</b>、累計返済額は ${yen(before)} です。`,
+      n ? `この月は ${n} 回、合計 <b class="down">${yen(r.repayTotal)}</b> を返済しました。` : `この月の返済はまだ記録されていません。`,
+      `返済後の残高は <b>${yen(r.end)}</b>、累計返済額は <b class="down">${yen(before + r.repayTotal)}</b> になります。`
+    ].map(x=>`<li>${x}</li>`).join("");
+    $("rNotes").innerHTML = r.notes.map(n=>`<div class="note">${esc(n)}</div>`).join("");
+    return;
+  }
   $("rTotal").textContent = yen(r.total);
   $("rMonthEnd").textContent = yen(r.monthEnd);
   $("rMonthEndSub").textContent = r.P ? `（先払い ${yen(r.P)} を差し引き後）` : "";
@@ -854,7 +893,7 @@ function renderLedger(){
   const sum = k => rows.reduce((a,x)=>a+x.r[k],0);
   const bal = rows.length ? rows[rows.length-1].r.end : toNum(settings.startBalance);
   $("kBalance").textContent = yen(bal);
-  $("kLoan").textContent = yen(sum("loan"));
+  $("kLoan").textContent = yen(isSimple() ? toNum(settings.startBalance) : sum("loan"));
   $("kRepay").textContent = yen(sum("repayTotal"));
   const lastRow = rows[rows.length-1];
   $("kLastLabel").textContent = lastRow ? `${monthLabel(lastRow.e.month)}の返済額` : "直近月の返済額";
@@ -862,7 +901,18 @@ function renderLedger(){
 
   const tb = $("ledger");
   if (!rows.length){
-    tb.innerHTML = `<tbody><tr><td class="empty" colspan="13">まだ記録がありません。上の「今月の計算」で月と報酬額を入れて「この月を台帳に保存」を押すと、ここに1行ずつ溜まっていきます。</td></tr></tbody>`;
+    tb.innerHTML = `<tbody><tr><td class="empty" colspan="13">まだ記録がありません。${isSimple() ? "上で月と返済額を入れて" : "上の「今月の計算」で月と報酬額を入れて"}「この月を台帳に保存」を押すと、ここに1行ずつ溜まっていきます。</td></tr></tbody>`;
+    return;
+  }
+  if (isSimple()){
+    let c = 0;
+    const lines = rows.map(({e,r})=>{ c += r.repayTotal;
+      const trs = (e.transfers || []).filter(t=>t.amount > 0);
+      const dates = trs.map(t=>fmtDate(t.date)).join("、") || "—";
+      const flow = [...new Set(trs.map(t=>`${transferWho(t,"from")} → ${transferWho(t,"to")}`))].join("、") || "—";
+      return `<tr data-id="${esc(e.month)}" class="${e.month===editingId?"editing":""}" tabindex="0"><td>${monthLabel(e.month)}</td><td class="down">${yen(r.repayTotal)}</td><td class="bal down">${yen(c)}</td><td>${trs.length}回</td><td class="memo">${esc(dates)}</td><td class="memo" title="${esc(flow)}">${esc(flow)}</td><td class="bal">${yen(r.end)}</td><td class="memo" title="${esc(e.memo)}">${esc(e.memo)}</td></tr>`; }).join("");
+    tb.innerHTML = `<thead><tr><th>月</th><th>その月の返済額</th><th>累計返済額</th><th>回数</th><th class="memo">支払日</th><th class="memo">振込元 → 振込先</th><th>残高</th><th class="memo">メモ</th></tr></thead><tbody>${lines}</tbody>` +
+      `<tfoot><tr><td>合計</td><td>${yen(sum("repayTotal"))}</td><td>${yen(sum("repayTotal"))}</td><td></td><td></td><td></td><td>${yen(bal)}</td><td></td></tr></tfoot>`;
     return;
   }
   const head = `<thead><tr><th>月</th><th>その月の返済額</th><th>累計返済額</th><th>固定額</th><th>報酬</th><th>返済充当</th><th>本人報酬</th><th>貸付（補填）</th><th>先払い</th><th>月末振込</th><th>追加返済</th><th>残高</th><th class="memo">メモ</th></tr></thead>`;
@@ -908,6 +958,7 @@ function renderSettings(){
   $("sTitle").value = settings.title || "";
   $("sMemo").value = settings.memo || "";
   $("sStatus").value = settings.status === "done" ? "done" : "active";
+  $("sMode").value = isSimple() ? "simple" : "calc"; syncSettingsMode();
   $("projDelConfirm").hidden = true;
   $("sFixed").value = fmtInput(settings.defaultFixed);
   $("sRuleType").value = settings.ruleType;
@@ -918,12 +969,29 @@ function renderSettings(){
   $("sFrom").value = ""; $("sTo").value = ""; syncDefaultAcctSelects();
   syncSettingsRule();
 }
+function syncSettingsMode(){
+  const sm = $("sMode").value === "simple";
+  $("settingsForm").classList.toggle("simple", sm);
+  $("sStartLabel").textContent = sm ? "借入額（返済前の残高）" : "開始時点の貸付残高";
+}
 function syncSettingsRule(){
   const pct = $("sRuleType").value === "pct";
   $("sRuleWrap").classList.toggle("pct", pct);
   $("sRuleLabel").textContent = pct ? "報酬に対する割合" : "毎月の充当額";
 }
+function isSimple(){ return settings.inputMode === "simple"; }
+function applyMode(){
+  const sm = isSimple();
+  $("calcPanel").classList.toggle("simple", sm);
+  $("matrixPanel").hidden = sm; $("howPanel").hidden = sm;
+  $("chartTitle").textContent = sm ? "残高の推移" : "貸付残高の推移";
+  $("trLegend").textContent = sm ? "返済の記録（支払日・返済額・振込元・振込先）" : "振込の記録（支払日・振込元・振込先）";
+  $("addTransfer").textContent = sm ? "＋ 返済を追加" : "＋ 振込を追加";
+  $("kBalance").previousElementSibling.textContent = sm ? "現在の残高" : "現在の貸付残高";
+  $("kLoan").previousElementSibling.textContent = sm ? "借入額（返済前の残高）" : "累計 貸付（補填）";
+}
 function renderHeader(){
+  applyMode();
   const p = projOf(cur);
   $("title").textContent = p ? projLabel(p) : "返済・補填台帳";
   document.title = p ? `${projLabel(p)}｜返済・補填台帳` : "返済・補填台帳";
@@ -1022,7 +1090,8 @@ $("delYes").addEventListener("click", async ()=>{
 $("ledger").addEventListener("click", e=>{ const tr = e.target.closest("tr[data-id]"); if (tr) openRow(tr.dataset.id); });
 $("ledger").addEventListener("keydown", e=>{ if (e.key==="Enter"){ const tr = e.target.closest("tr[data-id]"); if (tr) openRow(tr.dataset.id); } });
 $("sRuleType").addEventListener("change", syncSettingsRule);
-$("addTransfer").addEventListener("click", ()=>{ addTransferRow({ date: todayStr(), kind:"monthEnd" }).querySelector("input").focus(); });
+$("sMode").addEventListener("change", syncSettingsMode);
+$("addTransfer").addEventListener("click", ()=>{ addTransferRow({ date: todayStr(), kind: isSimple() ? "repay" : "monthEnd" }).querySelector("input").focus(); });
 $("addMonthEnd").addEventListener("click", ()=>{
   const e = readForm(); const r = calcMonth(e, settings, prevBalanceFor(e.month || "9999-99"));
   addTransferRow({ date: todayStr(), kind:"monthEnd", amount: r.monthEnd, memo:"" }); syncPrepayFromTransfers(); renderCalc();
@@ -1048,7 +1117,7 @@ $("expandAll").addEventListener("click", ()=>{ ["total","net","loan","repay","gr
 $("collapseAll").addEventListener("click", ()=>{ expanded.clear(); renderMatrix(); });
 $("settingsForm").addEventListener("submit", async ev=>{
   ev.preventDefault();
-  const s = { name:$("sName").value.trim(), title:$("sTitle").value.trim(), memo:$("sMemo").value.trim(), status:$("sStatus").value, defaultFixed:toNum($("sFixed").value), ruleType:$("sRuleType").value,
+  const s = { name:$("sName").value.trim(), title:$("sTitle").value.trim(), memo:$("sMemo").value.trim(), status:$("sStatus").value, inputMode:$("sMode").value, defaultFixed:toNum($("sFixed").value), ruleType:$("sRuleType").value,
     ruleValue:toNum($("sRuleValue").value), startBalance:toNum($("sStart").value), surplusMode:$("sSurplus").value,
     accounts: readAccts(), defaultFrom: $("sFrom").value, defaultTo: $("sTo").value };
   try { await persistSettings(s); flash("sToast","設定を保存しました。"); } catch(_){ flash("sToast","保存できませんでした。"); }
@@ -1060,6 +1129,12 @@ $("projTable").addEventListener("keydown", e=>{ if (e.key==="Enter"){ const tr =
 $("backBtn").addEventListener("click", ()=>openProject(null));
 $("projSwitch").addEventListener("change", e=>openProject(e.target.value));
 window.addEventListener("hashchange", route);
+function syncProjMode(){
+  const sm = $("pMode").value === "simple";
+  $("projForm").classList.toggle("simple", sm);
+  $("pStartLabel").textContent = sm ? "借入額（返済前の残高）" : "開始時点の貸付残高";
+}
+$("pMode").addEventListener("change", syncProjMode);
 function syncProjRule(){
   const pct = $("pRuleType").value === "pct";
   $("pRuleWrap").classList.toggle("pct", pct);
@@ -1067,13 +1142,13 @@ function syncProjRule(){
   $("pRuleValue").placeholder = pct ? "50" : "100,000";
 }
 $("pRuleType").addEventListener("change", syncProjRule);
-$("newProjBtn").addEventListener("click", ()=>{ $("projForm").reset(); syncProjRule(); $("projForm").hidden = false; $("pName").focus(); });
+$("newProjBtn").addEventListener("click", ()=>{ $("projForm").reset(); syncProjRule(); syncProjMode(); $("projForm").hidden = false; $("pName").focus(); });
 $("projCancel").addEventListener("click", ()=>{ $("projForm").hidden = true; });
 $("projForm").addEventListener("submit", async ev=>{
   ev.preventDefault();
   const pct = $("pRuleType").value === "pct";
   const p = { ...pick(DEFAULT_SETTINGS, PROJECT_KEYS), id: newId(), createdAt: Date.now(),
-    name: $("pName").value.trim(), title: $("pTitle").value.trim(), memo: $("pMemo").value.trim(),
+    inputMode: $("pMode").value, name: $("pName").value.trim(), title: $("pTitle").value.trim(), memo: $("pMemo").value.trim(),
     defaultFixed: hasVal($("pFixed").value) ? toNum($("pFixed").value) : DEFAULT_SETTINGS.defaultFixed,
     startBalance: toNum($("pStart").value), ruleType: $("pRuleType").value,
     ruleValue: hasVal($("pRuleValue").value) ? toNum($("pRuleValue").value) : (pct ? 50 : DEFAULT_SETTINGS.ruleValue),
