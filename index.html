@@ -474,7 +474,7 @@ details summary{cursor:pointer;font-family:var(--font-display);font-weight:700;f
             <div class="field"><label for="t_loan">「借入額」</label><input id="t_loan" maxlength="10"></div>
             <div class="field"><label for="t_balance">「残高」</label><input id="t_balance" maxlength="10"></div>
           </div>
-          <span class="hint">空欄なら元の言葉のままです。例：返済→入金、借入額→目標額、残高→残り。台帳の計算式でも、変えた言葉をそのまま使えます。</span>
+          <span class="hint">空欄なら元の言葉のままです。「保存」を押すと画面に反映されます。例：返済→入金、借入額→目標額、残高→残り。台帳の計算式でも、変えた言葉をそのまま使えます。</span>
           <div class="ferr" id="termErr" hidden></div>
         </fieldset>
         <div class="row">
@@ -1733,6 +1733,12 @@ $("settingsForm").addEventListener("submit", async ev=>{
     ruleValue:toNum($("sRuleValue").value), startBalance:toNum($("sStart").value), surplusMode:$("sSurplus").value,
     accounts: readAccts(), defaultFrom: $("sFrom").value, defaultTo: $("sTo").value, ...readDefs(), ...readLedgerFx(), terms: readTerms() };
   const termErr = Object.entries(s.terms).filter(([k,v])=>v && (/^[\d.]/.test(v) || /[+\-*/(),\[\]\s]/.test(v) || FUNCS[v])).map(([k,v])=>`言葉「${v}」には数字始まり・記号・空白を使えません。`);
+  // 2つの言葉が同じになると、画面でも計算式でもどちらの意味か区別できなくなるので保存しない
+  const eff = termsOf(s), seenW = {};
+  Object.entries(eff).forEach(([k,v])=>{ (seenW[v] = seenW[v] || []).push(TERM_DEFAULTS[k]); });
+  Object.entries(seenW).filter(([,ks])=>ks.length > 1).forEach(([v,ks])=>termErr.push(`「${ks.join("」と「")}」が同じ「${v}」になっています。区別できるよう別の言葉にしてください（例：残高→借入残高、借入額→当初借入額）。`));
+  // 計算式で使う名前（前回残高・累計返済額 など）とも重ならないようにする
+  Object.entries(s.terms).forEach(([k,v])=>{ if (v && LEDGER_VARS.includes(v) && !Object.values(TERM_DEFAULTS).includes(v)) termErr.push(`「${v}」は計算式で使う名前と重なるので使えません。`); });
   const chk = compileDefs(s, s.itemsRaw);
   $("defErr").hidden = !chk.errors.length; $("defErr").innerHTML = chk.errors.map(esc).join("<br>");
   // 入力欄の式は今の言葉で書かれているので、言葉を変えて保存しても通るように、先に元の言葉の式へ戻しておく
