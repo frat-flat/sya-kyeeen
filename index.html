@@ -518,11 +518,7 @@ details summary{cursor:pointer;font-family:var(--font-display);font-weight:700;f
   </section>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"></script>
 <script>
-/* ---------- Supabase 接続設定（公開用キーのみ。データは行レベルセキュリティで本人に限定） ---------- */
-const SUPABASE_URL = "https://lcfsxvrlkeijygkellsz.supabase.co";
-const SUPABASE_ANON_KEY = "sb_publishable_a4jxgr5prKw4tSUHC4lGAg_ODTg8wtI";
 
 /* ---------- 計算ロジック ---------- */
 const DEFAULT_SETTINGS = { name:"", title:"", memo:"", status:"active", inputMode:"simple", defaultFixed:400000, ruleType:"amt", ruleValue:100000, startBalance:0, surplusMode:"pay", accounts:[], defaultFrom:"", defaultTo:"" };
@@ -888,20 +884,25 @@ function loadLocal(){
 function saveLocal(){ try { localStorage.setItem(LS_KEY, JSON.stringify({ settings: metaForSave(meta), months: allMonths })); } catch(_){} }
 function afterChange(){ applyView(); if (cur) renderAll(); renderDash(); }
 
-async function sbCheck(res){ if (res.error) throw res.error; return res.data; }
+/* サーバー（/api）とのやり取り。DB や認証サービスの種類はサーバー側と auth/*.js に閉じ込めてあり、ここは知らない */
+async function api(method, path, body){
+  const token = await store.auth.getToken();
+  const r = await fetch("/api/" + path, { method, headers: { "Content-Type":"application/json", Authorization: "Bearer " + token }, body: body === undefined ? undefined : JSON.stringify(body) });
+  const j = await r.json().catch(()=>({}));
+  if (!r.ok) throw Object.assign(new Error(j.error || `通信エラー（${r.status}）`), { status: r.status });
+  return j;
+}
 async function persistMonth(m){
   m = { ...m, project: cur };
   if (store.mode === "db"){ await store.db.doc("months/" + monthDocId(cur, m.month)).set(m); return; }
-  if (store.mode === "supabase")
-    await sbCheck(await store.sb.from("ledger_months").upsert({ user_id: store.uid, project_id: cur, month: m.month, data: m, updated_at: new Date().toISOString() }, { onConflict: "user_id,project_id,month" }));
+  if (store.mode === "api") await api("PUT", "records", { project: cur, key: m.month, data: m });
   allMonths = allMonths.filter(x=>!(pidOf(x)===cur && x.month===m.month)).concat([m]);
   if (store.mode === "local") saveLocal();
   afterChange();
 }
 async function removeMonth(id){
   if (store.mode === "db"){ await store.db.doc("months/" + monthDocId(cur, id)).delete(); return; }
-  if (store.mode === "supabase")
-    await sbCheck(await store.sb.from("ledger_months").delete().eq("user_id", store.uid).eq("project_id", cur).eq("month", id));
+  if (store.mode === "api") await api("DELETE", `records?project=${encodeURIComponent(cur)}&key=${encodeURIComponent(id)}`);
   allMonths = allMonths.filter(x=>!(pidOf(x)===cur && x.month===id));
   if (store.mode === "local") saveLocal();
   afterChange();
@@ -909,8 +910,7 @@ async function removeMonth(id){
 async function persistMeta(m){
   const data = metaForSave(m);
   if (store.mode === "db"){ await store.db.doc("config/settings").set(data); return; }
-  if (store.mode === "supabase")
-    await sbCheck(await store.sb.from("ledger_settings").upsert({ user_id: store.uid, data, updated_at: new Date().toISOString() }, { onConflict: "user_id" }));
+  if (store.mode === "api") await api("PUT", "settings", { data });
   meta = m;
   if (store.mode === "local") saveLocal();
   afterChange();
@@ -925,7 +925,7 @@ async function persistSettings(s){
 async function removeProject(id){
   const list = allMonths.filter(m=>pidOf(m)===id);
   if (store.mode === "db") await Promise.all(list.map(m=>store.db.doc("months/" + monthDocId(id, m.month)).delete()));
-  else if (store.mode === "supabase") await sbCheck(await store.sb.from("ledger_months").delete().eq("user_id", store.uid).eq("project_id", id));
+  else if (store.mode === "api") await api("DELETE", `records?project=${encodeURIComponent(id)}`);
   if (store.mode !== "db") allMonths = allMonths.filter(m=>pidOf(m)!==id);
   await persistMeta({ accounts: meta.accounts, projects: meta.projects.filter(p=>p.id!==id) });
 }
@@ -1770,71 +1770,76 @@ $("storeBadge").textContent = "このブラウザに保存";
 const inClaude = !!(window.claude && typeof window.claude.use === "function");
 const localSnapshot = { settings: metaForSave(meta), months: allMonths.slice() };
 
-/* Supabase（claude.ai の外で開いたとき） */
-async function loadFromSupabase(){
-  const sb = store.sb;
-  const [st, ms] = await Promise.all([
-    sb.from("ledger_settings").select("data").eq("user_id", store.uid).maybeSingle(),
-    sb.from("ledger_months").select("project_id,month,data").eq("user_id", store.uid)
-  ]);
-  if (st.error) throw st.error; if (ms.error) throw ms.error;
-  allMonths = (ms.data || []).map(r=>({ ...r.data, month: r.month, project: r.project_id }));
-  normalizeMeta(st.data ? st.data.data : {});
+/* クラウド保存（claude.ai の外で開いたとき）：/api/config で認証サービスを知り、auth/<provider>.js を読み込む。
+   /api が無い環境（ファイルを直接開いたときなど）は、この端末だけに保存する */
+async function loadFromApi(){
+  const st = await api("GET", "state");
+  allMonths = (st.records || []).map(r=>({ ...r.data, month: r.key, project: r.project }));
+  normalizeMeta(st.settings || {});
   refreshView(true);
   $("importBox").hidden = !(allMonths.length === 0 && localSnapshot.months.length > 0);
 }
 async function onSession(session){
   if (!session){
-    store = { mode:"supabase", sb: store.sb, uid: null };
+    store = { mode:"api", auth: store.auth, uid: null };
     document.body.classList.add("locked");
     $("userEmail").hidden = true; $("logoutBtn").hidden = true; $("importBox").hidden = true;
     $("storeBadge").textContent = "ログインしてください";
     return;
   }
-  if (store.uid === session.user.id) return;
-  store = { mode:"supabase", sb: store.sb, uid: session.user.id };
+  if (store.uid === session.userId) return;
+  store = { mode:"api", auth: store.auth, uid: session.userId };
   document.body.classList.remove("locked");
-  $("userEmail").textContent = session.user.email || ""; $("userEmail").hidden = false; $("logoutBtn").hidden = false;
+  $("userEmail").textContent = session.email || ""; $("userEmail").hidden = false; $("logoutBtn").hidden = false;
   $("storeBadge").textContent = "読み込み中…";
-  try { await loadFromSupabase(); $("storeBadge").textContent = "クラウドに保存（どの端末からも同じ台帳）"; }
+  try { await loadFromApi(); $("storeBadge").textContent = "クラウドに保存（どの端末からも同じ台帳）"; }
   catch(_){ $("storeBadge").textContent = "読み込めませんでした。再読み込みしてください"; }
 }
-function authError(err){
-  const m = String(err && err.message || "");
-  if (/Invalid login credentials/i.test(m)) return "メールアドレスかパスワードが違います。";
-  if (/Email not confirmed/i.test(m)) return "確認メールのリンクを開いてから、もう一度ログインしてください。";
-  if (/already registered/i.test(m)) return "このメールアドレスは登録済みです。ログインしてください。";
-  if (/Password should be/i.test(m)) return "パスワードは8文字以上にしてください。";
+function authError(m){
+  m = String(m || "");
+  if (/Invalid login credentials|invalid email or password|INVALID_EMAIL_OR_PASSWORD/i.test(m)) return "メールアドレスかパスワードが違います。";
+  if (/Email not confirmed|not verified/i.test(m)) return "確認メールのリンクを開いてから、もう一度ログインしてください。";
+  if (/already registered|already exists/i.test(m)) return "このメールアドレスは登録済みです。ログインしてください。";
+  if (/Password should be|password.*(short|least)/i.test(m)) return "パスワードは8文字以上にしてください。";
   return "うまくいきませんでした：" + m;
 }
-if (!inClaude && SUPABASE_URL && SUPABASE_ANON_KEY && window.supabase){
-  store = { mode:"supabase", sb: window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY), uid: null };
+async function startCloud(){
+  let cfg;
+  try { const r = await fetch("/api/config", { cache:"no-store" }); if (!r.ok) return; cfg = await r.json(); } catch(_){ return; }
+  if (!cfg || !cfg.authUrl || !/^[a-z]+$/.test(cfg.authProvider || "")) return;
+  let auth;
+  try { auth = await (await import(`./auth/${cfg.authProvider}.js`)).create(cfg); }
+  catch(_){ $("storeBadge").textContent = "ログインの準備ができませんでした。再読み込みしてください"; return; }
+  store = { mode:"api", auth, uid: null };
   document.body.classList.add("locked");
-  store.sb.auth.onAuthStateChange((_ev, session)=>{ setTimeout(()=>onSession(session), 0); });
-  store.sb.auth.getSession().then(({ data })=>onSession(data.session));
+  auth.onChange(onSession);
+  auth.getSession().then(onSession);
   $("authForm").addEventListener("submit", async ev=>{
     ev.preventDefault(); $("loginBtn").disabled = true;
-    const { error } = await store.sb.auth.signInWithPassword({ email: $("authEmail").value.trim(), password: $("authPass").value });
+    const error = await auth.signIn($("authEmail").value.trim(), $("authPass").value);
     $("loginBtn").disabled = false;
-    if (error) $("authMsg").textContent = authError(error);
+    if (error) $("authMsg").textContent = authError(error); else onSession(await auth.getSession());
   });
   $("signupBtn").addEventListener("click", async ()=>{
     if (!$("authForm").reportValidity()) return;
     $("signupBtn").disabled = true;
-    const { data, error } = await store.sb.auth.signUp({ email: $("authEmail").value.trim(), password: $("authPass").value, options:{ emailRedirectTo: location.origin + location.pathname } });
+    const r = await auth.signUp($("authEmail").value.trim(), $("authPass").value);
     $("signupBtn").disabled = false;
-    $("authMsg").textContent = error ? authError(error) : data.session ? "" : "確認メールを送りました。メール内のリンクを開くとログインできます。";
+    $("authMsg").textContent = r.error ? authError(r.error) : r.needsConfirm ? "確認メールを送りました。メール内のリンクを開くとログインできます。" : "";
+    if (!r.error && !r.needsConfirm) onSession(await auth.getSession());
   });
-  $("logoutBtn").addEventListener("click", ()=>store.sb.auth.signOut());
+  $("logoutBtn").addEventListener("click", async ()=>{ await auth.signOut(); onSession(null); });
   $("importBtn").addEventListener("click", async ()=>{
     $("importBtn").disabled = true;
     try {
-      const uid = store.uid, sb = store.sb;
-      await sbCheck(await sb.from("ledger_settings").upsert({ user_id: uid, data: localSnapshot.settings }, { onConflict:"user_id" }));
-      if (localSnapshot.months.length) await sbCheck(await sb.from("ledger_months").upsert(localSnapshot.months.map(m=>({ user_id: uid, project_id: pidOf(m), month: m.month, data: { ...m, project: pidOf(m) } })), { onConflict:"user_id,project_id,month" }));
-      await loadFromSupabase(); flash("toast", `${localSnapshot.months.length}件を取り込みました。`);
+      await api("POST", "import", { settings: localSnapshot.settings, records: localSnapshot.months.map(m=>({ project: pidOf(m), key: m.month, data: { ...m, project: pidOf(m) } })) });
+      await loadFromApi(); flash("toast", `${localSnapshot.months.length}件を取り込みました。`);
     } catch(_){ $("importBtn").disabled = false; flash("toast", "取り込めませんでした。もう一度お試しください。"); }
   });
+}
+if (!inClaude && location.protocol !== "file:"){
+  document.body.classList.add("locked"); $("storeBadge").textContent = "接続中…";
+  startCloud().finally(()=>{ if (store.mode !== "api"){ document.body.classList.remove("locked"); $("storeBadge").textContent = "このブラウザに保存"; } });
 }
 if (!inClaude){
   $("csvBtn").hidden = false;
