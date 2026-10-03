@@ -284,7 +284,7 @@ details summary{cursor:pointer;font-family:var(--font-display);font-weight:700;f
     <div>
       <button type="button" class="menu-btn" id="menuBtn" aria-controls="side" aria-expanded="false" style="margin-bottom:10px">☰ メニュー</button>
       <h1 id="title">シャッキーーン</h1>
-      <p class="muted small" id="subtitle">誰の・何の案件かをプロジェクトごとに分けて、取引ごとの金額と累計・残高を記録します。</p>
+      <p class="muted small" id="subtitle" data-tr>誰の・何の案件かをプロジェクトごとに分けて、取引ごとの金額と累計・残高を記録します。</p>
     </div>
     <div class="who">
       <span class="store" id="storeBadge">読み込み中…</span>
@@ -450,7 +450,7 @@ details summary{cursor:pointer;font-family:var(--font-display);font-weight:700;f
         <div class="spage" data-pages="basic" style="display:grid;gap:14px">
         <div class="row">
           <div class="field"><label for="sName">誰の（対象者）</label><input id="sName" maxlength="40" placeholder="例：山田さん"></div>
-          <div class="field"><label for="sTitle">何の（返済・案件の内容）</label><input id="sTitle" maxlength="60" placeholder="例：車のローン立替"></div>
+          <div class="field"><label for="sTitle" data-tr>何の（返済・案件の内容）</label><input id="sTitle" maxlength="60" placeholder="例：車のローン立替"></div>
         </div>
         <div class="row">
           <div class="field"><label for="sMode">毎月の入力方法</label><select id="sMode"><option value="simple">返済額を直接入力</option><option value="calc">報酬から計算する</option></select></div>
@@ -493,7 +493,7 @@ details summary{cursor:pointer;font-family:var(--font-display);font-weight:700;f
           <div class="defhead const"><span>定数名</span><span>値</span><span></span></div>
           <div class="defs" id="constBox"></div>
           <div><button type="button" class="link" id="addConst">＋ 定数を追加（例：利率 5%）</button></div>
-          <span class="hint">使えるもの：+ − × ÷ ( )、数字（5% も可）、項目名・記号（A・B…）・定数名、四捨五入( )・切り捨て( )・切り上げ( )・最小( , )・最大( , )。<br>支払いの金額は、いちばん大きい項目（ほかの項目に含まれない項目）の合計になります。「支払額」を式に使うと、金額を手入力してそこから分ける形になります（例：利息＝切り捨て(支払額 × 利率)）。</span>
+          <span class="hint" data-tr>使えるもの：+ − × ÷ ( )、数字（5% も可）、項目名・記号（A・B…）・定数名、四捨五入( )・切り捨て( )・切り上げ( )・最小( , )・最大( , )。<br>支払いの金額は、いちばん大きい項目（ほかの項目に含まれない項目）の合計になります。「支払額」を式に使うと、金額を手入力してそこから分ける形になります（例：利息＝切り捨て(支払額 × 利率)）。</span>
           </div>
           <div class="ferr" id="defErr" hidden></div>
         </div>
@@ -831,7 +831,7 @@ function structureHtml(c){
   if (!c.items.length) return `<p class="muted small" style="margin:0">項目を追加すると、ここに構成の式が自動で表示されます。</p>`;
   const L = Object.fromEntries(c.items.map(x=>[x.name, x.letter]));
   const lt = n=>L[n] || n;
-  const top = c.amountAuto ? `支払額 = ${c.roots.map(x=>x.letter).join(" + ")}` : "支払額 = 手入力（式の中で「支払額」を使っているため）";
+  const top = tr(c.amountAuto ? `支払額 = ${c.roots.map(x=>x.letter).join(" + ")}` : "支払額 = 手入力（式の中で「支払額」を使っているため）");
   const kids = name=>c.items.filter(x=>x.parent === name);
   const li = x=>`<li><span class="lt">${x.letter}</span><b>${esc(x.name)}</b>` +
     (x.node ? ` = <span class="fx2">${esc(exprText(x.node, lt))}</span><span class="muted">（${esc(exprText(x.node, n=>n))}）</span>` : ` <span class="muted">… 手入力</span>`) +
@@ -971,7 +971,10 @@ function renderDash(){
   const shown = $("showDone").checked ? all : active;
   $("projEmpty").hidden = all.length > 0;
   $("projWrap").hidden = all.length === 0;
-  $("projTable").innerHTML = `<thead><tr><th>誰の・何の</th><th>状態</th><th>今月</th><th>直近の取引日</th><th>直近の取引額</th><th>累計返済額</th><th>記録数</th><th>残高</th></tr></thead><tbody>` +
+  // 見出しの言葉は、表示中のプロジェクトがすべて同じ言葉を使っているときだけ置き換える
+  const hw = [...new Set(shown.map(x=>JSON.stringify(trS(x.s, "累計返済額|残高").split("|"))))];
+  const [hRepay, hBal] = hw.length === 1 ? JSON.parse(hw[0]) : ["累計返済額","残高"];
+  $("projTable").innerHTML = `<thead><tr><th>誰の・何の</th><th>状態</th><th>今月</th><th>直近の取引日</th><th>直近の取引額</th><th>${esc(hRepay)}</th><th>記録数</th><th>${esc(hBal)}</th></tr></thead><tbody>` +
     (shown.length ? shown.map(x=>`<tr data-pid="${esc(x.p.id)}" tabindex="0" class="${x.done?"done":""}">
       <td class="who"><b>${esc(x.p.name || "（対象者未設定）")}</b><span>${esc(x.p.title || "内容未設定")}${x.p.memo ? "・" + esc(x.p.memo) : ""}</span></td>
       <td>${x.done ? '<span class="tag off">完了</span>' : '<span class="tag ok">進行中</span>'}</td>
@@ -1008,6 +1011,8 @@ function showNewProject(){
   $("projForm").reset(); $("projForm").hidden = false; $("pName").focus();
 }
 /* 画面：#p=<プロジェクトID>&v=<ページ>。ページは台帳と、設定の各ページ（基本情報・口座・内訳項目・計算式） */
+/* data-tr を付けた固定の文言を、開いているプロジェクトの言葉（返済→精算 など）に置き換える。ダッシュボードでは元の言葉 */
+function applyTerms(){ document.querySelectorAll("[data-tr]").forEach(el=>{ if (el.dataset.tr === "") el.dataset.tr = el.innerHTML; el.innerHTML = cur ? tr(el.dataset.tr) : el.dataset.tr; }); }
 const VIEWS = { basic:"基本情報", ledger:"台帳", accounts:"口座", items:"内訳項目", formulas:"計算式" };
 const VIEW_NOTES = { basic:"誰の・何の・メモ、入力方法、借入額など", accounts:"振込元・振込先に使う口座（すべてのプロジェクトで共通）", items:"1回の支払いを分ける項目と、その定義", formulas:"内訳項目の計算式と定数、台帳の計算式（返済額・残高・追加の列）" };
 let view = "ledger", shownCur = null;
@@ -1018,7 +1023,7 @@ function setView(v){
   $("projTabs").querySelectorAll("button").forEach(b=>b.setAttribute("aria-selected", String(b.dataset.v === view)));
   if (view !== "ledger"){
     $("settingsForm").dataset.page = view;
-    $("setTitle").textContent = VIEWS[view]; $("setNote").textContent = VIEW_NOTES[view] || "";
+    $("setTitle").textContent = VIEWS[view]; $("setNote").textContent = tr(VIEW_NOTES[view] || ""); applyTerms();
     $("itemDefBox").querySelectorAll("input.n").forEach(n=>{ n.readOnly = view === "formulas"; });
     $("projDelConfirm").hidden = true;
     // 何も登録されていないページは、空の入力行を1つ出してすぐ入力できるようにする
@@ -1038,7 +1043,7 @@ function route(){
   navAutoFor = cur;
   applyView(); renderDash();
   if (cur && !same){ editingId = null; renderSettings(); startNew(); renderAll(); }
-  if (!cur){ $("title").textContent = "プロジェクト"; document.title = "シャッキーーン"; }
+  if (!cur){ $("title").textContent = "プロジェクト"; document.title = "シャッキーーン"; applyTerms(); }
   window.scrollTo(0, 0);
   if (!cur && pendingNew){ pendingNew = false; showNewProject(); }
 }
@@ -1548,7 +1553,7 @@ function renderSettings(){
   $("lfRepay").placeholder = "初期の式：" + showFx(LEDGER_DEFAULT.repay); $("lfBalance").placeholder = "初期の式：" + showFx(LEDGER_DEFAULT.balance);
   $("ledgerColBox").innerHTML = ""; (settings.ledgerCols || []).forEach(c=>addLedgerColRow({ name: c.name, formula: showFx(c.formula) })); $("ledgerErr").hidden = true;
   const tm = termsOf(settings); ["repay","loan","balance","paid"].forEach(k=>{ const el = $("t_" + k); el.value = (settings.terms || {})[k] || ""; el.placeholder = TERM_DEFAULTS[k]; });
-  $("defErr").hidden = true; renderStructure();
+  $("defErr").hidden = true; renderStructure(); applyTerms();
   $("sFrom").value = ""; $("sTo").value = ""; syncDefaultAcctSelects();
   syncSettingsRule();
 }
@@ -1556,7 +1561,7 @@ function syncSettingsMode(){
   const sm = $("sMode").value === "simple";
   $("settingsForm").classList.toggle("simple", sm);
   $("sStartLabel").textContent = sm ? trS({ ...settings, inputMode:"simple" }, "借入額（返済前の残高）") : "開始時点の貸付残高";
-  $("sStartHint").textContent = sm ? "任意。入れると残高も表示します" : "ツールを使い始める前からの借金";
+  $("sStartHint").textContent = sm ? tr("任意。入れると残高も表示します") : "ツールを使い始める前からの借金";
 }
 function syncSettingsRule(){
   const pct = $("sRuleType").value === "pct";
