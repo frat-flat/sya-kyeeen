@@ -132,6 +132,34 @@ table.ledger.projs td.who{text-align:left;white-space:normal;min-width:200px}
 table.ledger.projs td.who b{display:block;color:var(--ink)}
 table.projs td.who span{font-size:.8rem;color:var(--muted)}
 table.projs tr.done td{opacity:.6}
+/* 左サイドバー：プロジェクトメニュー。狭い画面ではメニューボタンで開く引き出しになる */
+.side{position:fixed;top:0;left:0;bottom:0;width:240px;background:var(--paper);border-right:1px solid var(--line);padding:20px 12px;overflow-y:auto;z-index:20;display:flex;flex-direction:column;gap:4px}
+.side-brand{font-family:var(--font-display);font-weight:900;font-size:1.05rem;padding:0 8px 14px}
+.side button{width:100%;text-align:left;border:none;background:none;border-radius:6px;color:var(--ink)}
+.side-head{font-weight:700;padding:9px 10px;display:flex;justify-content:space-between;align-items:center}
+.side-head .count{font-size:.75rem;font-weight:500;color:var(--muted)}
+.side-list{display:grid;gap:2px;margin:0 0 6px}
+.side-item{padding:6px 10px 6px 22px;font-size:.88rem;line-height:1.35;min-width:0}
+.side-item b,.side-item small{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.side-item b{font-weight:500}
+.side-item small{color:var(--muted);font-size:.75rem}
+.side-item.done{opacity:.6}
+.side button:hover{background:var(--soft)}
+.side button.on{background:var(--soft);color:var(--accent)}
+.side button.on b{font-weight:700}
+.side-new{padding:8px 10px 8px 22px;color:var(--accent)!important;font-size:.88rem}
+.side-empty{padding:4px 10px 4px 22px;font-size:.8rem;color:var(--muted)}
+.menu-btn{display:none}
+.scrim{position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:15}
+body:not(.locked){padding-left:calc(240px + 24px)}
+body.locked .side,body.locked .menu-btn{display:none!important}
+@media (max-width:900px){
+  body:not(.locked){padding-left:16px}
+  .side{transform:translateX(-100%);visibility:hidden;box-shadow:0 0 24px rgba(0,0,0,.2)}
+  body.nav-open .side{transform:none;visibility:visible}
+  .menu-btn{display:inline-block}
+}
+@media (max-width:900px) and (prefers-reduced-motion:no-preference){ .side{transition:transform .2s ease,visibility .2s} }
 .simple .calc-only{display:none!important}
 .simple-only{display:none!important}
 .simple .simple-only{display:grid!important}
@@ -157,12 +185,20 @@ details summary{cursor:pointer;font-family:var(--font-display);font-weight:700;f
 </style>
 </head>
 <body>
+<aside class="side" id="side" aria-label="メニュー">
+  <div class="side-brand">返済・補填台帳</div>
+  <button type="button" class="side-head" id="navProjects"><span>プロジェクト</span><span class="count" id="navCount"></span></button>
+  <div class="side-list" id="navList"></div>
+  <button type="button" class="side-new" id="navNew">＋ 新規プロジェクト</button>
+</aside>
+<div class="scrim" id="scrim" hidden></div>
 
 <div class="wrap">
   <header class="head">
     <div>
+      <button type="button" class="menu-btn" id="menuBtn" aria-controls="side" aria-expanded="false" style="margin-bottom:10px">☰ メニュー</button>
       <h1 id="title">返済・補填台帳</h1>
-      <p class="muted small" id="subtitle">誰の・何の返済かをプロジェクトに分けて、毎月の固定支払額を報酬・返済充当・補填の貸付に振り分けて記録します。</p>
+      <p class="muted small" id="subtitle">誰の・何の返済かをプロジェクトごとに分けて、毎月の返済額と累計返済額・残高を記録します。</p>
     </div>
     <div class="who">
       <span class="store" id="storeBadge">読み込み中…</span>
@@ -213,8 +249,7 @@ details summary{cursor:pointer;font-family:var(--font-display);font-weight:700;f
   </section>
 
   <nav class="crumb pv" aria-label="プロジェクトの切り替え">
-    <button type="button" class="link" id="backBtn">← ダッシュボード</button>
-    <select id="projSwitch" aria-label="プロジェクトを切り替え"></select>
+    <button type="button" class="link" id="backBtn">← プロジェクト一覧</button>
   </nav>
 
   <div class="note" id="importBox" hidden>このブラウザに以前の記録が残っています。<button type="button" class="link" id="importBtn">クラウドに取り込む</button></div>
@@ -599,9 +634,22 @@ function renderDash(){
       <td>${x.last ? monthLabel(x.last) : "—"}</td><td class="down">${x.last ? yen(x.lastRepay) : "—"}</td>
       <td class="bal down">${yen(x.repay)}</td><td>${x.count}か月</td><td class="up">${yen(x.balance)}</td></tr>`).join("")
       : `<tr><td colspan="8" class="empty">進行中のプロジェクトはありません。「完了も表示」で完了したものを確認できます。</td></tr>`) + "</tbody>";
-  const sw = $("projSwitch");
-  sw.innerHTML = all.map(x=>`<option value="${esc(x.p.id)}">${esc(projLabel(x.p))}${x.done?"（完了）":""}</option>`).join("");
-  if (cur) sw.value = cur;
+  renderNav(all);
+}
+function renderNav(all){
+  $("navProjects").classList.toggle("on", !cur);
+  $("navCount").textContent = all.length ? `${all.filter(x=>!x.done).length}件進行中` : "";
+  $("navList").innerHTML = all.length ? all.map(x=>`<button type="button" class="side-item${x.done?" done":""}${x.p.id===cur?" on":""}" data-pid="${esc(x.p.id)}"${x.p.id===cur?' aria-current="page"':""}>
+      <b>${esc(x.p.name || "（対象者未設定）")}</b><small>${esc(x.p.title || "内容未設定")}${x.done?"・完了":""}</small></button>`).join("")
+    : `<div class="side-empty">まだありません</div>`;
+}
+function setNav(open){
+  document.body.classList.toggle("nav-open", open);
+  $("scrim").hidden = !open;
+  $("menuBtn").setAttribute("aria-expanded", String(open));
+}
+function showNewProject(){
+  $("projForm").reset(); syncProjRule(); syncProjMode(); $("projForm").hidden = false; $("pName").focus();
 }
 function openProject(id){ location.hash = id ? "#p=" + encodeURIComponent(id) : "#"; }
 function route(){
@@ -613,6 +661,7 @@ function route(){
   if (cur){ editingId = null; renderSettings(); startNew(); renderAll(); }
   else { $("title").textContent = "返済・補填台帳"; document.title = "返済・補填台帳"; }
   window.scrollTo(0, 0);
+  if (!cur && pendingNew){ pendingNew = false; showNewProject(); }
 }
 /* 保存先から読み直したとき：開いている画面を保ったまま描画し直す */
 function refreshView(first){
@@ -1127,7 +1176,16 @@ $("showDone").addEventListener("change", renderDash);
 $("projTable").addEventListener("click", e=>{ const tr = e.target.closest("tr[data-pid]"); if (tr) openProject(tr.dataset.pid); });
 $("projTable").addEventListener("keydown", e=>{ if (e.key==="Enter"){ const tr = e.target.closest("tr[data-pid]"); if (tr) openProject(tr.dataset.pid); } });
 $("backBtn").addEventListener("click", ()=>openProject(null));
-$("projSwitch").addEventListener("change", e=>openProject(e.target.value));
+$("menuBtn").addEventListener("click", ()=>setNav(!document.body.classList.contains("nav-open")));
+$("scrim").addEventListener("click", ()=>setNav(false));
+document.addEventListener("keydown", e=>{ if (e.key==="Escape") setNav(false); });
+$("navProjects").addEventListener("click", ()=>{ setNav(false); openProject(null); });
+$("navList").addEventListener("click", e=>{ const b = e.target.closest("button[data-pid]"); if (!b) return; setNav(false); openProject(b.dataset.pid); });
+$("navNew").addEventListener("click", ()=>{
+  setNav(false);
+  if (cur){ pendingNew = true; openProject(null); } else showNewProject();
+});
+let pendingNew = false;   // 別のプロジェクトから「新規」を押したとき、ダッシュボードに戻ってから入力欄を開く
 window.addEventListener("hashchange", route);
 function syncProjMode(){
   const sm = $("pMode").value === "simple";
@@ -1142,7 +1200,7 @@ function syncProjRule(){
   $("pRuleValue").placeholder = pct ? "50" : "100,000";
 }
 $("pRuleType").addEventListener("change", syncProjRule);
-$("newProjBtn").addEventListener("click", ()=>{ $("projForm").reset(); syncProjRule(); syncProjMode(); $("projForm").hidden = false; $("pName").focus(); });
+$("newProjBtn").addEventListener("click", showNewProject);
 $("projCancel").addEventListener("click", ()=>{ $("projForm").hidden = true; });
 $("projForm").addEventListener("submit", async ev=>{
   ev.preventDefault();
