@@ -818,12 +818,20 @@ async function removeProject(id){
 
 /* ---------- ダッシュボードと画面の切り替え ---------- */
 function ymNow(){ const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`; }
+/* 直近の取引＝今日に最も近い支払日の記録（今日以前で最も新しいもの。すべて未来の日付なら最も早いもの）。登録した順ではなく支払日で選ぶ */
+function nearestRow(rows){
+  if (!rows.length) return null;
+  const t = todayStr(), past = rows.filter(x=>x.e.month.slice(0,10) <= t);
+  return past.length ? past[past.length-1] : rows[0];
+}
+function lastAmount(r){ return r.simple ? r.paid : r.repayTotal; }
 function projSummary(p){
   const s = projSettings(p), ms = allMonths.filter(m=>pidOf(m)===p.id);
   const rows = buildLedger(ms, s);
   const sum = k => rows.reduce((a,x)=>a+x.r[k],0);
-  return { p, s, count: rows.length, last: rows.length ? rows[rows.length-1].e.month : "", balance: rows.length ? rows[rows.length-1].r.end : toNum(s.startBalance),
-    repay: sum("repayTotal"), lastRepay: rows.length ? rows[rows.length-1].r.repayTotal : 0, hasNow: ms.some(m=>String(m.month).startsWith(ymNow())), done: p.status === "done" };
+  const near = nearestRow(rows);
+  return { p, s, count: rows.length, last: near ? near.e.month : "", balance: rows.length ? rows[rows.length-1].r.end : toNum(s.startBalance),
+    repay: sum("repayTotal"), lastRepay: near ? lastAmount(near.r) : 0, hasNow: ms.some(m=>String(m.month).startsWith(ymNow())), done: p.status === "done" };
 }
 function renderDash(){
   const all = meta.projects.map(projSummary).sort((a,b)=>(a.done-b.done) || (b.p.createdAt||0)-(a.p.createdAt||0));
@@ -831,7 +839,7 @@ function renderDash(){
   const shown = $("showDone").checked ? all : active;
   $("projEmpty").hidden = all.length > 0;
   $("projWrap").hidden = all.length === 0;
-  $("projTable").innerHTML = `<thead><tr><th>誰の・何の</th><th>状態</th><th>今月</th><th>直近の記録</th><th>直近の返済額</th><th>累計返済額</th><th>記録数</th><th>残高</th></tr></thead><tbody>` +
+  $("projTable").innerHTML = `<thead><tr><th>誰の・何の</th><th>状態</th><th>今月</th><th>直近の取引日</th><th>直近の取引額</th><th>累計返済額</th><th>記録数</th><th>残高</th></tr></thead><tbody>` +
     (shown.length ? shown.map(x=>`<tr data-pid="${esc(x.p.id)}" tabindex="0" class="${x.done?"done":""}">
       <td class="who"><b>${esc(x.p.name || "（対象者未設定）")}</b><span>${esc(x.p.title || "内容未設定")}${x.p.memo ? "・" + esc(x.p.memo) : ""}</span></td>
       <td>${x.done ? '<span class="tag off">完了</span>' : '<span class="tag ok">進行中</span>'}</td>
@@ -1277,9 +1285,9 @@ function renderLedger(){
   $("kBalance").textContent = balText(settings, bal);
   $("kLoan").textContent = isSimple() ? (balKnown(settings) ? yen(toNum(settings.startBalance)) : "未登録（0円）") : yen(sum("loan"));
   $("kRepay").textContent = yen(sum("repayTotal"));
-  const lastRow = rows[rows.length-1];
-  $("kLastLabel").textContent = isSimple() ? (lastRow ? `直近の取引（${monthLabel(lastRow.e.month)}）` : "直近の取引の返済額") : lastRow ? `${monthLabel(lastRow.e.month)}の返済額` : "直近月の返済額";
-  $("kLast").textContent = yen(lastRow ? lastRow.r.repayTotal : 0);
+  const lastRow = nearestRow(rows);
+  $("kLastLabel").textContent = isSimple() ? (lastRow ? `直近の取引額（${monthLabel(lastRow.e.month)}）` : "直近の取引額") : lastRow ? `${monthLabel(lastRow.e.month)}の返済額` : "直近月の返済額";
+  $("kLast").textContent = yen(lastRow ? lastAmount(lastRow.r) : 0);
 
   const tb = $("ledger");
   if (!rows.length){
