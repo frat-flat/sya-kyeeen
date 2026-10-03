@@ -4,9 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>返済・補填台帳</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3CradialGradient id='g' cx='.35' cy='.3' r='.8'%3E%3Cstop offset='0' stop-color='%23fff3b0'/%3E%3Cstop offset='.45' stop-color='%23f2c230'/%3E%3Cstop offset='1' stop-color='%23b07a0c'/%3E%3C/radialGradient%3E%3C/defs%3E%3Ccircle cx='32' cy='32' r='28' fill='url(%23g)' stroke='%238a5a00' stroke-width='3'/%3E%3Cpath d='M21 16l11 15 11-15M32 31v19M22 33h20M22 41h20' fill='none' stroke='%236b4300' stroke-width='5.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+JP:wght@400;500;700&family=Zen+Kaku+Gothic+New:wght@700;900&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=IBM+Plex+Sans+JP:wght@400;500;700&family=Zen+Kaku+Gothic+New:wght@700;900&display=swap">
 <style>
 /* Layout: 通帳のような台帳。上に残高帯、中段に「今月の計算」（入力｜内訳）、下に残高推移と月次台帳、最後に設定。 */
 :root{
@@ -134,7 +135,17 @@ table.projs td.who span{font-size:.8rem;color:var(--muted)}
 table.projs tr.done td{opacity:.6}
 /* 左サイドバー：プロジェクトメニュー。狭い画面ではメニューボタンで開く引き出しになる */
 .side{position:fixed;top:0;left:0;bottom:0;width:240px;background:var(--paper);border-right:1px solid var(--line);padding:20px 12px;overflow-y:auto;z-index:20;display:flex;flex-direction:column;gap:4px}
-.side-brand{font-family:var(--font-display);font-weight:900;font-size:1.05rem;padding:0 8px 14px}
+.side-brand{padding:0 4px 14px;color:var(--ink)}
+.side-brand svg{display:block;width:100%;max-width:220px;height:auto;overflow:visible}
+.side-brand small{display:block;font-size:.72rem;color:var(--muted);letter-spacing:.08em;margin:2px 0 0 52px}
+.logo-word{font-family:"Dela Gothic One","Zen Kaku Gothic New","Hiragino Sans","Yu Gothic",sans-serif;font-weight:900;font-size:27px;fill:currentColor;stroke:currentColor;stroke-width:.8;stroke-linejoin:round;paint-order:stroke}
+@media (prefers-reduced-motion:no-preference){
+  .logo .tw{transform-box:fill-box;transform-origin:center;animation:twinkle 2.4s ease-in-out infinite}
+  .logo .tw.d2{animation-delay:.8s} .logo .tw.d3{animation-delay:1.6s}
+  .logo .shine{animation:shine 3.2s ease-in-out infinite}
+}
+@keyframes twinkle{0%,100%{transform:scale(.55) rotate(0);opacity:.55}50%{transform:scale(1.15) rotate(45deg);opacity:1}}
+@keyframes shine{0%,60%{transform:translateX(-40px)}100%{transform:translateX(40px)}}
 .side button{width:100%;text-align:left;border:none;background:none;border-radius:6px;color:var(--ink)}
 .side-head{font-weight:700;padding:9px 10px;display:flex;justify-content:space-between;align-items:center}
 .side-head .count{font-size:.75rem;font-weight:500;color:var(--muted)}
@@ -228,7 +239,25 @@ details summary{cursor:pointer;font-family:var(--font-display);font-weight:700;f
 </head>
 <body>
 <aside class="side" id="side" aria-label="メニュー">
-  <div class="side-brand">返済・補填台帳</div>
+  <div class="side-brand"><svg class="logo" viewBox="0 0 240 64" role="img" aria-label="シャッキーーン 返済・補填台帳">
+    <defs>
+      <radialGradient id="lgCoin" cx=".35" cy=".3" r=".85"><stop offset="0" stop-color="#fff6c2"/><stop offset=".45" stop-color="#f3c535"/><stop offset="1" stop-color="#a8700a"/></radialGradient>
+      <linearGradient id="lgGold" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffe680"/><stop offset=".5" stop-color="#f0b90b"/><stop offset="1" stop-color="#c68a00"/></linearGradient>
+      <clipPath id="lgClip"><circle cx="26" cy="34" r="19"/></clipPath>
+    </defs>
+    <g fill="none" stroke="#e9ad0c" stroke-linecap="round" opacity=".95">
+      <path d="M62 53 Q150 47 232 50" stroke-width="3"/><path d="M84 59h64" stroke-width="1.8"/><path d="M158 59h22" stroke-width="1.8"/>
+    </g>
+    <circle cx="26" cy="34" r="19" fill="url(#lgCoin)" stroke="#8a5a00" stroke-width="2"/>
+    <circle cx="26" cy="34" r="15" fill="none" stroke="#b98200" stroke-width="1" opacity=".7"/>
+    <path d="M18.5 23.5l7.5 10 7.5-10M26 33.5v12M19 35.5h14M19 40.5h14" fill="none" stroke="#6b4300" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>
+    <g clip-path="url(#lgClip)"><rect class="shine" x="10" y="10" width="8" height="50" fill="#fff" opacity=".45" transform="skewX(-20)"/></g>
+    <path class="tw" d="M8 8l2 5 5 2-5 2-2 5-2-5-5-2 5-2z" fill="url(#lgGold)"/>
+    <path class="tw d2" d="M46 9l1.5 3.5 3.5 1.5-3.5 1.5-1.5 3.5-1.5-3.5-3.5-1.5 3.5-1.5z" fill="url(#lgGold)"/>
+    <path class="tw d3" d="M44 50l1.2 2.8 2.8 1.2-2.8 1.2-1.2 2.8-1.2-2.8-2.8-1.2 2.8-1.2z" fill="url(#lgGold)"/>
+    <path class="tw d2" d="M228 14l1.5 3.5 3.5 1.5-3.5 1.5-1.5 3.5-1.5-3.5-3.5-1.5 3.5-1.5z" fill="url(#lgGold)"/>
+    <text class="logo-word" x="0" y="0" transform="translate(56 44) skewX(-15)" textLength="172" lengthAdjust="spacingAndGlyphs">シャッキーーン</text>
+  </svg><small>返済・補填台帳</small></div>
   <button type="button" class="side-head" id="navProjects"><span>プロジェクト</span><span class="count" id="navCount"></span></button>
   <div class="side-list" id="navList"></div>
   <button type="button" class="side-new" id="navNew">＋ 新規プロジェクト</button>
