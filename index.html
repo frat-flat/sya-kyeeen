@@ -46,8 +46,8 @@ h2{font-size:1.15rem;font-weight:700}
 .kpi span{display:block;font-size:.78rem;color:var(--muted);letter-spacing:.04em}
 .kpi b{display:block;font-size:1.35rem;font-family:var(--font-body);font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .kpi.main b{color:var(--loan)}
-.lfpane{display:grid;gap:10px}
-.lfpane[hidden]{display:none}
+#settingsForm[data-page="formulas"][data-ftab="sum"] #defsSet,#settingsForm[data-page="formulas"][data-ftab="tx"] #ledgerFxSet{display:none!important}
+.lfsub{font-weight:700;font-size:.92rem;margin-top:6px}
 .lfprev{white-space:pre-line;overflow-wrap:anywhere;margin:-4px 0 4px}
 /* 返済額を直接入力する方式では 現在の借入額・現在の返済額・合計借入額・合計返済額 の順 */
 .kpis.simple .kpi.main{order:-2} .kpis.simple .kpi.now{order:-1}
@@ -451,7 +451,7 @@ details summary{cursor:pointer;font-family:var(--font-display);font-weight:700;f
 
   <section class="panel pv sv" id="settingsPanel">
       <div class="sectionhead"><h2 id="setTitle">基本情報</h2><span class="muted small" id="setNote"></span></div>
-      <form class="form" id="settingsForm" data-page="basic" autocomplete="off">
+      <form class="form" id="settingsForm" data-page="basic" data-ftab="tx" autocomplete="off">
         <div class="spage" data-pages="basic" style="display:grid;gap:14px">
         <div class="row">
           <div class="field"><label for="sName">誰の（対象者）</label><input id="sName" maxlength="40" placeholder="例：山田さん"></div>
@@ -487,6 +487,7 @@ details summary{cursor:pointer;font-family:var(--font-display);font-weight:700;f
           <div class="field calc-only"><label for="sSurplus">報酬が固定額を上回った月</label><select id="sSurplus"><option value="pay">上回った分も全額支払う</option><option value="repay">上回った分を追加返済に回す</option></select></div>
         </div>
         </div>
+        <div class="tabs spage" data-pages="formulas" id="lfTabs" role="tablist"><button type="button" role="tab" data-lt="tx" aria-selected="true">各取引</button><button type="button" role="tab" data-lt="sum" aria-selected="false">合計</button></div>
         <div class="spage" data-pages="items formulas" id="defsSet" style="display:grid;gap:12px">
           <span class="hint spage" data-pages="items">1回の支払いを分ける項目（例：送金額、固定報酬額）と、その項目が指すものを登録します。項目どうしの計算は「計算式」ページで設定します。</span>
           <span class="hint spage" data-pages="formulas">項目ごとに計算式を入れると、ほかの項目から自動で計算されます。空欄の項目は手入力です。式の中では項目名のほか、行の左の記号（A・B…）も使えます。項目名の追加・変更は「内訳項目」ページで行います。</span>
@@ -507,8 +508,7 @@ details summary{cursor:pointer;font-family:var(--font-display);font-weight:700;f
           <span class="hint calc-only">台帳の計算式は「返済額を直接入力」方式で使います。「基本情報」で入力方法を切り替えると設定できます。</span>
           <div class="field simple-only"><label for="lfStart" id="lfStartLabel">開始時点の借入額</label><div class="yen"><input id="lfStart" inputmode="numeric" placeholder="0"></div><span class="hint" id="lfStartHint">任意。最初の取引より前からある借入額です（最初に一度入れておけば十分です）。</span></div>
           <div class="simple-only" style="gap:10px">
-            <div class="tabs" id="lfTabs" role="tablist"><button type="button" role="tab" data-lt="tx" aria-selected="true">各取引</button><button type="button" role="tab" data-lt="sum" aria-selected="false">合計</button></div>
-            <div class="lfpane" data-lt="tx">
+            <div class="lfsub">取引1件ごとの額</div>
               <span class="hint" id="lfHintTx"></span>
               <div class="lfx"><label for="lf_borrowTx" id="lfL_borrowTx">この取引の借入額</label><input id="lf_borrowTx" maxlength="200"></div>
               <span class="hint lfprev" id="lfP_borrowTx"></span>
@@ -519,8 +519,7 @@ details summary{cursor:pointer;font-family:var(--font-display);font-weight:700;f
                 <div class="defs" id="ledgerColBox"></div>
                 <div><button type="button" class="link" id="addLedgerCol">＋ 列を追加（例：未返済の支払＝支払額 − 返済額）</button></div>
               </div>
-            </div>
-            <div class="lfpane" data-lt="sum" hidden>
+            <div class="lfsub">すべての取引の合計</div>
               <span class="hint" id="lfHintSum"></span>
               <div class="lfx"><label for="lf_balanceNow" id="lfL_balanceNow">現在の残高</label><input id="lf_balanceNow" maxlength="200"></div>
               <span class="hint lfprev" id="lfP_balanceNow"></span>
@@ -530,7 +529,6 @@ details summary{cursor:pointer;font-family:var(--font-display);font-weight:700;f
               <span class="hint lfprev" id="lfP_loanTotal"></span>
               <div class="lfx"><label for="lf_repayTotal" id="lfL_repayTotal">合計返済額</label><input id="lf_repayTotal" maxlength="200"></div>
               <span class="hint lfprev" id="lfP_repayTotal"></span>
-            </div>
             <span class="hint">空欄なら初期の式を使います。式の下の数値は、保存してある式と取引で計算した結果です（保存すると更新されます）。<br>関数：四捨五入( )・切り捨て( )・切り上げ( )・最小( , )・最大( , )。</span>
           </div>
           <div class="ferr" id="ledgerErr" hidden></div>
@@ -1678,8 +1676,8 @@ function applyMode(){
   $("kLoan").classList.toggle("down", sm);
   // 計算式ページの台帳の式まわり
   [["lfStartLabel","開始時点の借入額"],["lfStartHint","任意。最初の取引より前からある借入額です（最初に一度入れておけば十分です）。"],["addLedgerCol","＋ 列を追加（例：未返済の支払＝支払額 − 返済額）"],
-   ["lfHintTx","1件の取引ごとの式です。内訳項目名と支払額は、その取引の額です。合計借入額・合計返済額・残高は「その取引までの合計」、前回までの合計借入額・前回までの合計返済額・前回残高は「ひとつ前の取引までの合計」です（「合計」タブの式で計算）。返済額の式では今回の借入額（この取引の借入額）も使えます。追加の列では、返済額・累計返済額・累計支払額・前回までの返済額・前回までの支払額も使えます。"],
-   ["lfHintSum","登録したすべての取引の合計に当てはめる式です。内訳項目名と支払額は、すべての取引の合計です。ほかに開始時点の借入額・件数・定数名を使えます。合計返済額の式では合計借入額、現在の残高の式では合計借入額・合計返済額、現在の返済額の式ではさらに残高・直近の取引の返済額・直近の取引の借入額（今日に最も近い取引の「各取引」の式の値）も使えます。"],
+   ["lfHintTx","1件の取引ごとの式です（台帳の各行と、取引の入力欄の2項目）。内訳項目名と支払額は、その取引の額です。合計借入額・合計返済額・残高は「その取引までの合計」、前回までの合計借入額・前回までの合計返済額・前回残高は「ひとつ前の取引までの合計」です（下の「すべての取引の合計」の式で計算）。返済額の式では今回の借入額（この取引の借入額）も使えます。追加の列では、返済額・累計返済額・累計支払額・前回までの返済額・前回までの支払額も使えます。"],
+   ["lfHintSum","登録したすべての取引の合計に当てはめる式です。内訳項目名と支払額は、すべての取引の合計です。ほかに開始時点の借入額・件数・定数名を使えます。合計返済額の式では合計借入額、現在の残高の式では合計借入額・合計返済額、現在の返済額の式ではさらに残高・直近の取引の返済額・直近の取引の借入額（今日に最も近い取引の、上の「取引1件ごとの額」の式の値）も使えます。"],
    ...LFX.map(f=>["lfL_" + f.key, f.label])].forEach(([id,t])=>{ $(id).textContent = tr(t); });
 }
 function renderHeader(){
@@ -1854,7 +1852,7 @@ $("settingsForm").addEventListener("submit", async ev=>{
 $("showDone").addEventListener("change", renderDash);
 $("lfTabs").addEventListener("click", ev=>{ const b = ev.target.closest("button[data-lt]"); if (!b) return;
   $("lfTabs").querySelectorAll("button").forEach(x=>x.setAttribute("aria-selected", String(x === b)));
-  document.querySelectorAll(".lfpane").forEach(p=>{ p.hidden = p.dataset.lt !== b.dataset.lt; }); });
+  $("settingsForm").dataset.ftab = b.dataset.lt; });
 $("addLedgerCol").addEventListener("click", ()=>addLedgerColRow({}).querySelector("input").focus());
 $("projTable").addEventListener("click", e=>{ const tr = e.target.closest("tr[data-pid]"); if (tr) openProject(tr.dataset.pid); });
 $("projTable").addEventListener("keydown", e=>{ if (e.key==="Enter"){ const tr = e.target.closest("tr[data-pid]"); if (tr) openProject(tr.dataset.pid); } });
