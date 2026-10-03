@@ -161,7 +161,7 @@ body.locked .side,body.locked .menu-btn{display:none!important}
 }
 @media (max-width:900px) and (prefers-reduced-motion:no-preference){ .side{transition:transform .2s ease,visibility .2s} }
 .defs{display:grid;gap:8px}
-.def{display:grid;grid-template-columns:2.2em minmax(0,1fr) minmax(0,1.4fr) minmax(0,1.4fr) auto;gap:8px;align-items:center}
+.def{display:grid;grid-template-columns:2.2em minmax(0,1fr) minmax(0,1.6fr) auto;gap:8px;align-items:center}
 .def .lt,.struct .lt,.parts .lt{display:inline-grid;place-items:center;min-width:1.8em;height:1.8em;border-radius:5px;background:var(--soft);border:1px solid var(--line);font-size:.78rem;font-weight:700;color:var(--accent)}
 .structbox{border:1px solid var(--line);border-radius:8px;padding:10px 12px;background:var(--soft);display:grid;gap:6px}
 .struct-top{font-weight:700;font-size:.9rem}
@@ -173,14 +173,25 @@ body.locked .side,body.locked .menu-btn{display:none!important}
 .struct .desc{font-size:.78rem;color:var(--muted);margin-left:2.4em}
 .def.const{grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto}
 .def button{padding:6px 10px;color:var(--muted)}
-.defhead{display:grid;grid-template-columns:2.2em minmax(0,1fr) minmax(0,1.4fr) minmax(0,1.4fr) auto;gap:8px;font-size:.75rem;color:var(--muted)}
+.defhead{display:grid;grid-template-columns:2.2em minmax(0,1fr) minmax(0,1.6fr) auto;gap:8px;font-size:.75rem;color:var(--muted)}
 .defhead>span:last-child{width:3.6em}
 .defhead.const{grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto}
 .ferr{background:var(--warn-bg);color:var(--warn-ink);border-radius:6px;padding:8px 12px;font-size:.85rem}
 .parts{display:grid;grid-template-columns:minmax(0,1fr);gap:8px;border-top:1px dashed var(--line);padding-top:10px}
 .parts .field label .fx{font-size:.7rem;color:var(--accent);margin-left:4px}
 .ptitle{grid-column:1/-1;font-size:.78rem;font-weight:700;color:var(--muted)}
-@media (max-width:640px){ .defhead:not(.const){display:none} .def:not(.const){grid-template-columns:2.2em minmax(0,1fr) auto} .def:not(.const)>input:nth-of-type(2),.def:not(.const)>input:nth-of-type(3){grid-column:2/-1} }
+@media (max-width:640px){ .defhead:not(.const){display:none} .def:not(.const){grid-template-columns:2.2em minmax(0,1fr) auto} .def:not(.const)>input.f,.def:not(.const)>input.d{grid-column:2/-1} }
+body:not(.v-ledger) .lv,body.v-ledger .sv{display:none!important}
+.tabs{display:flex;flex-wrap:wrap;gap:4px;border-bottom:1px solid var(--line);width:100%}
+.tabs button{border:none;border-bottom:2px solid transparent;border-radius:0;background:none;padding:8px 12px;color:var(--muted);font-weight:500}
+.tabs button[aria-selected="true"]{color:var(--accent);border-bottom-color:var(--accent);font-weight:700}
+#settingsForm[data-page="basic"] .spage:not([data-pages~="basic"]),#settingsForm[data-page="accounts"] .spage:not([data-pages~="accounts"]),
+#settingsForm[data-page="items"] .spage:not([data-pages~="items"]),#settingsForm[data-page="formulas"] .spage:not([data-pages~="formulas"]){display:none!important}
+#settingsForm[data-page="items"] .def:not(.const)>.f,#settingsForm[data-page="items"] .defhead>.f,
+#settingsForm[data-page="formulas"] .def:not(.const)>.d,#settingsForm[data-page="formulas"] .defhead>.d,#settingsForm[data-page="formulas"] .def:not(.const)>button{display:none}
+#settingsForm[data-page="formulas"] .def:not(.const)>input.n{background:none;border-color:transparent;font-weight:700}
+.side-sub{padding:4px 10px 4px 34px!important;font-size:.82rem;color:var(--muted)!important}
+.side-sub.on{color:var(--accent)!important;font-weight:700}
 .simple .calc-only{display:none!important}
 .simple-only{display:none!important}
 .simple .simple-only{display:grid!important}
@@ -260,18 +271,21 @@ details summary{cursor:pointer;font-family:var(--font-display);font-weight:700;f
 
   <nav class="crumb pv" aria-label="プロジェクトの切り替え">
     <button type="button" class="link" id="backBtn">← プロジェクト一覧</button>
+    <div class="tabs" id="projTabs" role="tablist">
+      <button type="button" data-v="ledger">台帳</button><button type="button" data-v="basic">基本情報</button><button type="button" data-v="accounts">口座</button><button type="button" data-v="items">内訳項目</button><button type="button" data-v="formulas">計算式</button>
+    </div>
   </nav>
 
   <div class="note" id="importBox" hidden>このブラウザに以前の記録が残っています。<button type="button" class="link" id="importBtn">クラウドに取り込む</button></div>
 
-  <section class="kpis pv" aria-label="現在の状況">
+  <section class="kpis pv lv" aria-label="現在の状況">
     <div class="kpi"><span>累計 返済額</span><b id="kRepay" class="down">0円</b></div>
     <div class="kpi"><span id="kLastLabel">直近月の返済額</span><b id="kLast">0円</b></div>
     <div class="kpi main"><span>現在の貸付残高</span><b id="kBalance">0円</b></div>
     <div class="kpi"><span>累計 貸付（補填）</span><b id="kLoan">0円</b></div>
   </section>
 
-  <section class="panel pv" id="calcPanel">
+  <section class="panel pv lv" id="calcPanel">
     <div class="sectionhead">
       <h2 id="calcTitle">今月の計算</h2>
       <span class="muted small" id="editState">新しい月を入力中</span>
@@ -344,7 +358,7 @@ details summary{cursor:pointer;font-family:var(--font-display);font-weight:700;f
     </div>
   </section>
 
-  <section class="panel pv" id="matrixPanel">
+  <section class="panel pv lv" id="matrixPanel">
     <div class="sectionhead">
       <h2>内訳マトリクス</h2>
       <div class="btns"><button type="button" class="link" id="expandAll">すべて展開</button><button type="button" class="link" id="collapseAll">すべて閉じる</button></div>
@@ -353,7 +367,7 @@ details summary{cursor:pointer;font-family:var(--font-display);font-weight:700;f
     <div class="tablewrap"><table class="ledger matrix" id="matrix"></table></div>
   </section>
 
-  <section class="panel pv">
+  <section class="panel pv lv">
     <div class="sectionhead">
       <h2>振込履歴</h2>
       <div class="btns"><button type="button" id="copyTrBtn">履歴をコピー</button></div>
@@ -362,12 +376,12 @@ details summary{cursor:pointer;font-family:var(--font-display);font-weight:700;f
     <div class="toast" id="hToast" role="status"></div>
   </section>
 
-  <section class="panel pv">
+  <section class="panel pv lv">
     <div class="sectionhead"><h2 id="chartTitle">貸付残高の推移</h2><span class="muted small" id="chartNote"></span></div>
     <div class="chartbox" id="chart"></div>
   </section>
 
-  <section class="panel pv">
+  <section class="panel pv lv">
     <div class="sectionhead">
       <h2>月次台帳</h2>
       <div class="btns"><button type="button" id="csvBtn">CSVで保存</button><button type="button" id="copyBtn">表をコピー</button></div>
@@ -376,10 +390,10 @@ details summary{cursor:pointer;font-family:var(--font-display);font-weight:700;f
     <p class="muted small" style="margin:8px 0 0">行をクリックすると上の計算欄で編集できます。</p>
   </section>
 
-  <section class="panel pv">
-    <details id="settingsBox">
-      <summary>このプロジェクトの設定</summary>
-      <form class="form" id="settingsForm" style="margin-top:14px" autocomplete="off">
+  <section class="panel pv sv" id="settingsPanel">
+      <div class="sectionhead"><h2 id="setTitle">基本情報</h2><span class="muted small" id="setNote"></span></div>
+      <form class="form" id="settingsForm" data-page="basic" autocomplete="off">
+        <div class="spage" data-pages="basic" style="display:grid;gap:14px">
         <div class="row">
           <div class="field"><label for="sName">誰の（対象者）</label><input id="sName" maxlength="40" placeholder="例：山田さん"></div>
           <div class="field"><label for="sTitle">何の（返済・案件の内容）</label><input id="sTitle" maxlength="60" placeholder="例：車のローン立替"></div>
@@ -400,21 +414,23 @@ details summary{cursor:pointer;font-family:var(--font-display);font-weight:700;f
           <div class="field"><label for="sStart" id="sStartLabel">開始時点の貸付残高</label><div class="yen"><input id="sStart" inputmode="numeric" placeholder="0"></div><span class="hint" id="sStartHint">ツールを使い始める前からの借金</span></div>
           <div class="field calc-only"><label for="sSurplus">報酬が固定額を上回った月</label><select id="sSurplus"><option value="pay">上回った分も全額支払う</option><option value="repay">上回った分を追加返済に回す</option></select></div>
         </div>
-        <fieldset id="defsSet">
-          <legend>支払いの内訳項目と計算式</legend>
-          <span class="hint">1回の支払いを項目ごとに分けて記録できます。計算式を入れた項目は、ほかの項目から自動で計算されます。式の中では項目名のほか、行の左の記号（A・B…）も使えます。</span>
-          <div class="defhead"><span></span><span>項目名</span><span>計算式（空欄なら手入力）</span><span>定義（この項目が指すもの）</span><span></span></div>
+        </div>
+        <div class="spage" data-pages="items formulas" id="defsSet" style="display:grid;gap:12px">
+          <span class="hint spage" data-pages="items">1回の支払いを分ける項目（例：送金額、固定報酬額）と、その項目が指すものを登録します。項目どうしの計算は「計算式」ページで設定します。</span>
+          <span class="hint spage" data-pages="formulas">項目ごとに計算式を入れると、ほかの項目から自動で計算されます。空欄の項目は手入力です。式の中では項目名のほか、行の左の記号（A・B…）も使えます。項目名の追加・変更は「内訳項目」ページで行います。</span>
+          <div class="defhead"><span></span><span>項目名</span><span class="f">計算式（空欄なら手入力）</span><span class="d">定義（この項目が指すもの）</span><span></span></div>
           <div class="defs" id="itemDefBox"></div>
-          <div><button type="button" class="link" id="addItemDef">＋ 項目を追加</button></div>
+          <div class="spage" data-pages="items"><button type="button" class="link" id="addItemDef">＋ 項目を追加</button></div>
           <div class="structbox"><div class="ptitle">構成の式（保存すると大きい順に並び替わり、記号も振り直されます）</div><div id="structView"></div></div>
+          <div class="spage" data-pages="formulas" style="display:grid;gap:8px">
           <div class="defhead const"><span>定数名</span><span>値</span><span></span></div>
           <div class="defs" id="constBox"></div>
           <div><button type="button" class="link" id="addConst">＋ 定数を追加（例：利率 5%）</button></div>
           <span class="hint">使えるもの：+ − × ÷ ( )、数字（5% も可）、項目名・記号（A・B…）・定数名、四捨五入( )・切り捨て( )・切り上げ( )・最小( , )・最大( , )。<br>支払いの金額は、いちばん大きい項目（ほかの項目に含まれない項目）の合計になります。「支払額」を式に使うと、金額を手入力してそこから分ける形になります（例：利息＝切り捨て(支払額 × 利率)）。</span>
+          </div>
           <div class="ferr" id="defErr" hidden></div>
-        </fieldset>
-        <fieldset id="acctsSet">
-          <legend>口座の登録</legend>
+        </div>
+        <div class="spage" data-pages="accounts" id="acctsSet" style="display:grid;gap:10px">
           <div class="accts" id="acctsBox"></div>
           <div><button type="button" class="link" id="addAcct">＋ 口座を追加</button></div>
           <span class="hint">「吉田のA銀行」「山田の生活費口座」のように表示されます。口座はすべてのプロジェクトで共通です。</span>
@@ -422,15 +438,14 @@ details summary{cursor:pointer;font-family:var(--font-display);font-weight:700;f
             <div class="field"><label for="sFrom">いつもの振込元</label><select id="sFrom"></select></div>
             <div class="field"><label for="sTo">いつもの振込先</label><select id="sTo"></select></div>
           </div>
-        </fieldset>
-        <div class="btns"><button type="submit" class="primary">設定を保存</button><button type="button" class="danger" id="projDel">このプロジェクトを削除</button></div>
+        </div>
+        <div class="btns"><button type="submit" class="primary">保存</button><button type="button" class="danger spage" data-pages="basic" id="projDel">このプロジェクトを削除</button></div>
         <div class="confirm" id="projDelConfirm" hidden>このプロジェクトと、その月次記録をすべて削除します。元に戻せません。<button type="button" class="danger" id="projDelYes">削除する</button><button type="button" id="projDelNo">やめる</button></div>
         <div class="toast" id="sToast" role="status"></div>
       </form>
-    </details>
   </section>
 
-  <section class="panel small muted pv" id="howPanel">
+  <section class="panel small muted pv lv" id="howPanel">
     <h2 style="font-size:1rem;color:var(--ink);margin-bottom:6px">計算のしくみ</h2>
     <p style="margin:0">報酬のうち充当ルール分を返済に回し、残りを本人報酬として支払います。本人報酬が固定支払額に届かない差額は、その月に貸し付けます。このため、報酬が固定額を下回る月は、返済充当の額に関わらず残高は「固定額 − 報酬額」だけ増えます（充当した分を同じ月に貸し戻す形になるため）。先払いは、その月に渡す総額の一部を前もって渡したものとして扱い、月末の振込額から差し引きます。</p>
   </section>
@@ -818,7 +833,8 @@ function renderNav(all){
   $("navProjects").classList.toggle("on", !cur);
   $("navCount").textContent = all.length ? `${all.filter(x=>!x.done).length}件進行中` : "";
   $("navList").innerHTML = all.length ? all.map(x=>`<button type="button" class="side-item${x.done?" done":""}${x.p.id===cur?" on":""}" data-pid="${esc(x.p.id)}"${x.p.id===cur?' aria-current="page"':""}>
-      <b>${esc(x.p.name || "（対象者未設定）")}</b><small>${esc(x.p.title || "内容未設定")}${x.done?"・完了":""}</small></button>`).join("")
+      <b>${esc(x.p.name || "（対象者未設定）")}</b><small>${esc(x.p.title || "内容未設定")}${x.done?"・完了":""}</small></button>` +
+      (x.p.id===cur ? Object.entries(VIEWS).map(([k,label])=>`<button type="button" class="side-sub${k===view?" on":""}" data-pid="${esc(x.p.id)}" data-v="${k}">${label}</button>`).join("") : "")).join("")
     : `<div class="side-empty">まだありません</div>`;
 }
 function setNav(open){
@@ -829,22 +845,43 @@ function setNav(open){
 function showNewProject(){
   $("projForm").reset(); $("projForm").hidden = false; $("pName").focus();
 }
-function openProject(id){ location.hash = id ? "#p=" + encodeURIComponent(id) : "#"; }
+/* 画面：#p=<プロジェクトID>&v=<ページ>。ページは台帳と、設定の各ページ（基本情報・口座・内訳項目・計算式） */
+const VIEWS = { ledger:"台帳", basic:"基本情報", accounts:"口座", items:"内訳項目", formulas:"計算式" };
+const VIEW_NOTES = { basic:"誰の・何の・メモ、入力方法、借入額など", accounts:"振込元・振込先に使う口座（すべてのプロジェクトで共通）", items:"1回の支払いを分ける項目と、その定義", formulas:"項目ごとの計算式と定数。構成の式は自動で作られます" };
+let view = "ledger", shownCur = null;
+function openProject(id, v){ location.hash = id ? "#p=" + encodeURIComponent(id) + (v && v !== "ledger" ? "&v=" + v : "") : "#"; }
+function setView(v){
+  view = VIEWS[v] ? v : "ledger";
+  Object.keys(VIEWS).forEach(k=>document.body.classList.toggle("v-" + k, k === view));
+  $("projTabs").querySelectorAll("button").forEach(b=>b.setAttribute("aria-selected", String(b.dataset.v === view)));
+  if (view !== "ledger"){
+    $("settingsForm").dataset.page = view;
+    $("setTitle").textContent = VIEWS[view]; $("setNote").textContent = VIEW_NOTES[view] || "";
+    $("itemDefBox").querySelectorAll("input.n").forEach(n=>{ n.readOnly = view === "formulas"; });
+    $("projDelConfirm").hidden = true;
+    // 何も登録されていないページは、空の入力行を1つ出してすぐ入力できるようにする
+    const box = view === "accounts" ? "acctsBox" : view === "items" ? "itemDefBox" : null;
+    if (box && cur && !$(box).children.length){ (view === "accounts" ? addAcctRow : addItemDefRow)({}); if (view === "accounts") syncDefaultAcctSelects(); }
+    if (box) setTimeout(()=>{ const f = $(box).querySelector("input"); if (f && !f.value) f.focus({ preventScroll:true }); }, 50);
+  }
+}
 function route(){
-  const m = location.hash.match(/^#p=(.+)$/);
+  const m = location.hash.match(/^#p=([^&]+)(?:&v=(\w+))?$/);
   const id = m ? decodeURIComponent(m[1]) : null;
   cur = id && projOf(id) ? id : null;
   document.body.classList.toggle("dash", !cur);
+  const same = cur && cur === shownCur; shownCur = cur;
+  setView(cur && m[2] ? m[2] : "ledger");
   applyView(); renderDash();
-  if (cur){ editingId = null; renderSettings(); startNew(); renderAll(); }
-  else { $("title").textContent = "返済・補填台帳"; document.title = "返済・補填台帳"; }
+  if (cur && !same){ editingId = null; renderSettings(); startNew(); renderAll(); }
+  if (!cur){ $("title").textContent = "返済・補填台帳"; document.title = "返済・補填台帳"; }
   window.scrollTo(0, 0);
   if (!cur && pendingNew){ pendingNew = false; showNewProject(); }
 }
 /* 保存先から読み直したとき：開いている画面を保ったまま描画し直す */
 function refreshView(first){
   if (cur && !projOf(cur)){ openProject(null); route(); return; }
-  if (first){ route(); return; }
+  if (first){ shownCur = null; route(); return; }
   applyView(); renderDash();
   if (cur){ renderSettings(); renderAll(); }
 }
@@ -1036,8 +1073,10 @@ let defSeq = 0;
 function addItemDefRow(x){
   const i = defSeq++;
   const row = document.createElement("div"); row.className = "def"; row.dataset.id = x.id || ("i" + Date.now().toString(36) + Math.random().toString(36).slice(2,6));
-  row.innerHTML = `<span class="lt"></span><input id="dName${i}" maxlength="30" placeholder="例：送金額" aria-label="項目名"><input id="dF${i}" maxlength="200" placeholder="空欄なら手入力（例：B + C）" aria-label="計算式"><input id="dDesc${i}" maxlength="120" placeholder="例：毎月振り込む合計" aria-label="定義"><button type="button" aria-label="この項目を削除">削除</button>`;
+  row.innerHTML = `<span class="lt"></span><input class="n" id="dName${i}" maxlength="30" placeholder="例：送金額" aria-label="項目名"><input class="f" id="dF${i}" maxlength="200" placeholder="空欄なら手入力（例：B + C）" aria-label="計算式"><input class="d" id="dDesc${i}" maxlength="120" placeholder="例：毎月振り込む合計" aria-label="定義"><button type="button" aria-label="この項目を削除">削除</button>`;
   row.querySelector(`#dName${i}`).value = x.name || ""; row.querySelector(`#dF${i}`).value = x.formula || ""; row.querySelector(`#dDesc${i}`).value = x.desc || "";
+  const nm = row.querySelector(`#dName${i}`); nm.dataset.prev = x.name || ""; nm.readOnly = $("settingsForm").dataset.page === "formulas";
+  nm.addEventListener("change", ()=>{ renameInFormulas(nm.dataset.prev, nm.value.trim()); nm.dataset.prev = nm.value.trim(); renderStructure(); });
   row.querySelector("button").addEventListener("click", ()=>{ row.remove(); renderStructure(); });
   $("itemDefBox").appendChild(row); renderStructure(); return row;
 }
@@ -1056,8 +1095,17 @@ function addConstRow(x){
   row.querySelector("button").addEventListener("click", ()=>{ row.remove(); renderStructure(); });
   $("constBox").appendChild(row); return row;
 }
+/* 項目名を変えたら、その名前を使っている計算式も新しい名前に書き換える */
+function renameInFormulas(oldName, newName){
+  if (!oldName || !newName || oldName === newName) return;
+  const rows = [...$("itemDefBox").querySelectorAll(".def")];
+  const names = [AMOUNT_NAME, ...rows.map(r=>r.querySelector("input.n").value.trim()).map(n=>n===newName ? oldName : n).filter(Boolean),
+    ...[...$("constBox").querySelectorAll(".def")].map(r=>r.querySelector("input").value.trim()).filter(Boolean)];
+  rows.forEach(r=>{ const f = r.querySelector("input.f"); if (!f.value.trim()) return;
+    try { const node = parseExpr(f.value, names); if (refsOf(node).has(oldName)) f.value = exprText(node, n=>n===oldName ? newName : n); } catch(_){} });
+}
 function readDefs(){
-  const itemsRaw = [...$("itemDefBox").querySelectorAll(".def")].map(r=>{ const [n,f,dd] = r.querySelectorAll("input"); return { id: r.dataset.id, name: n.value.trim(), formula: f.value.trim(), desc: dd.value.trim() }; });
+  const itemsRaw = [...$("itemDefBox").querySelectorAll(".def")].map(r=>{ const n = r.querySelector("input.n"), f = r.querySelector("input.f"), dd = r.querySelector("input.d"); return { id: r.dataset.id, name: n.value.trim(), formula: f.value.trim(), desc: dd.value.trim() }; });
   const items = itemsRaw.filter(x=>x.name);
   const consts = [...$("constBox").querySelectorAll(".def")].map(r=>{ const [n,v] = r.querySelectorAll("input"); const raw = normExpr(v.value).trim();
     return { name: n.value.trim(), value: /%$/.test(raw) ? toNum(raw.slice(0,-1))/100 : toNum(raw) }; }).filter(x=>x.name);
@@ -1394,15 +1442,9 @@ $("ledger").addEventListener("click", e=>{ const tr = e.target.closest("tr[data-
 $("ledger").addEventListener("keydown", e=>{ if (e.key==="Enter"){ const tr = e.target.closest("tr[data-id]"); if (tr) openRow(tr.dataset.id); } });
 $("sRuleType").addEventListener("change", syncSettingsRule);
 $("sMode").addEventListener("change", syncSettingsMode);
-/* 入力欄の近くから、下の設定の該当箇所を開いて移動する */
-function goSetting(setId, addFn, box){
-  $("settingsBox").open = true;
-  if (!$(box).children.length) addFn({});
-  $(setId).scrollIntoView({ behavior:"smooth", block:"start" });
-  const first = $(box).querySelector("input"); if (first) setTimeout(()=>first.focus({ preventScroll:true }), 300);
-}
-$("goAccts").addEventListener("click", ()=>goSetting("acctsSet", addAcctRow, "acctsBox"));
-$("goDefs").addEventListener("click", ()=>goSetting("defsSet", addItemDefRow, "itemDefBox"));
+$("goAccts").addEventListener("click", ()=>openProject(cur, "accounts"));
+$("goDefs").addEventListener("click", ()=>openProject(cur, "items"));
+$("projTabs").addEventListener("click", e=>{ const b = e.target.closest("button[data-v]"); if (b) openProject(cur, b.dataset.v); });
 $("addItemDef").addEventListener("click", ()=>addItemDefRow({}).querySelector("input").focus());
 $("itemDefBox").addEventListener("input", renderStructure);
 $("constBox").addEventListener("input", renderStructure);
@@ -1453,7 +1495,7 @@ $("menuBtn").addEventListener("click", ()=>setNav(!document.body.classList.conta
 $("scrim").addEventListener("click", ()=>setNav(false));
 document.addEventListener("keydown", e=>{ if (e.key==="Escape") setNav(false); });
 $("navProjects").addEventListener("click", ()=>{ setNav(false); openProject(null); });
-$("navList").addEventListener("click", e=>{ const b = e.target.closest("button[data-pid]"); if (!b) return; setNav(false); openProject(b.dataset.pid); });
+$("navList").addEventListener("click", e=>{ const b = e.target.closest("button[data-pid]"); if (!b) return; setNav(false); openProject(b.dataset.pid, b.dataset.v); });
 $("navNew").addEventListener("click", ()=>{
   setNav(false);
   if (cur){ pendingNew = true; openProject(null); } else showNewProject();
