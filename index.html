@@ -193,6 +193,11 @@ body.locked .side,body.locked .menu-btn{display:none!important}
 .struct .desc{font-size:.78rem;color:var(--muted);margin-left:2.4em}
 .def.const{grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto}
 .def button{padding:6px 10px;color:var(--muted)}
+.def .ops{display:flex;gap:4px;align-items:center}
+.def .ops .mv{padding:6px 7px;font-size:.7rem;line-height:1}
+.def:first-child .ops .up,.def:last-child .ops .dn{visibility:hidden}
+#itemDefBox .def .lt{cursor:grab}
+.def.dragging{opacity:.45}
 .defhead{display:grid;grid-template-columns:2.2em minmax(0,1fr) minmax(0,1.6fr) auto;gap:8px;font-size:.75rem;color:var(--muted)}
 .defhead>span:last-child{width:3.6em}
 .defhead.const{grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto}
@@ -211,7 +216,7 @@ body:not(.v-ledger) .lv,body.v-ledger .sv{display:none!important}
 #settingsForm[data-page="basic"] .spage:not([data-pages~="basic"]),#settingsForm[data-page="accounts"] .spage:not([data-pages~="accounts"]),
 #settingsForm[data-page="items"] .spage:not([data-pages~="items"]),#settingsForm[data-page="formulas"] .spage:not([data-pages~="formulas"]){display:none!important}
 #settingsForm[data-page="items"] .def:not(.const)>.f,#settingsForm[data-page="items"] .defhead>.f,
-#settingsForm[data-page="formulas"] .def:not(.const)>.d,#settingsForm[data-page="formulas"] .defhead>.d,#settingsForm[data-page="formulas"] .def:not(.const)>button{display:none}
+#settingsForm[data-page="formulas"] .def:not(.const)>.d,#settingsForm[data-page="formulas"] .defhead>.d,#settingsForm[data-page="formulas"] .def:not(.const)>button,#settingsForm[data-page="formulas"] .def:not(.const) .ops .del{display:none}
 #settingsForm[data-page="formulas"] .def:not(.const)>input.n{background:none;border-color:transparent;font-weight:700}
 .side-row{display:flex;align-items:stretch;border-radius:6px}
 .side-row .side-item{flex:1;min-width:0}
@@ -264,7 +269,7 @@ details summary{cursor:pointer;font-family:var(--font-display);font-weight:700;f
     </g>
     <path class="skid" d="M34 57.6L214 55.6v3.2z" fill="url(#lgFade)"/>
     <g class="stop" fill="currentColor"><path d="M222 24l9-7 1.2 1.4-8.6 7.4z"/><path d="M224.5 36.2h11v1.8h-11z"/></g>
-    <g class="brake"><text class="logo-word" x="0" y="0" transform="translate(34 48) skewX(9)" textLength="182" lengthAdjust="spacingAndGlyphs">シャッキーーン</text></g>
+    <g class="brake"><text class="logo-word" x="0" y="0" transform="translate(34 48) skewX(-12)" textLength="182" lengthAdjust="spacingAndGlyphs">シャッキーーン</text></g>
     <g transform="translate(30 11) scale(.85)"><use class="tw" href="#yenMark"/></g>
     <g transform="translate(143 9) scale(.5)"><use class="tw d2" href="#yenMark"/></g>
     <g transform="translate(236 8) scale(.92)"><use class="tw d3" href="#yenMark"/></g>
@@ -485,7 +490,7 @@ details summary{cursor:pointer;font-family:var(--font-display);font-weight:700;f
           <div class="defhead"><span></span><span>項目名</span><span class="f">計算式（空欄なら手入力）</span><span class="d">定義（この項目が指すもの）</span><span></span></div>
           <div class="defs" id="itemDefBox"></div>
           <div class="spage" data-pages="items"><button type="button" class="link" id="addItemDef">＋ 項目を追加</button></div>
-          <div class="structbox"><div class="ptitle">構成の式（保存すると大きい順に並び替わり、記号も振り直されます）</div><div id="structView"></div></div>
+          <div class="structbox"><div class="ptitle">構成の式（上の行の順に A・B… が振られます。▲▼ や記号のドラッグで並び替えると、式の記号も自動で振り直されます）</div><div id="structView"></div></div>
           <div class="spage" data-pages="formulas" style="display:grid;gap:8px">
           <div class="defhead const"><span>定数名</span><span>値</span><span></span></div>
           <div class="defs" id="constBox"></div>
@@ -768,7 +773,7 @@ function exprText(node, name, parent = 0){
   return prec < parent ? `(${t})` : t;
 }
 /* 設定を検査して、計算に使える形にする。
-   項目は「ほかの項目から参照されていない項目（いちばん大きい項目）」から順に、その構成要素をたどって並べ、A・B・C… を振る。
+   項目は設定で並べた順に A・B・C… を振る。親子関係は「ほかの項目から参照されていない項目（いちばん大きい項目）」から式をたどって決める。
    式の中では項目名のほか、編集中の行に表示している記号（A・B…）も使える。errors が空なら保存できる */
 function compileDefs(d, aliasOrder){
   const items = (d.items || []).filter(x=>x.name), consts = (d.consts || []).filter(x=>x.name);
@@ -786,7 +791,7 @@ function compileDefs(d, aliasOrder){
   const state = {};
   const visit = n=>{ if (state[n]===2 || !deps[n]) return false; if (state[n]===1) return true; state[n]=1; for (const m of deps[n]) if (visit(m)) return true; state[n]=2; return false; };
   Object.keys(deps).forEach(n=>{ if (visit(n) && !errors.some(e=>e.includes("循環"))) errors.push(`計算式がお互いを参照しています（循環）。「${n}」の式を見直してください。`); });
-  // 大きい順に並べる：参照されていない項目を親として、式に出てくる順に子をたどる
+  // 親子関係を決める：参照されていない項目を親として、式に出てくる順に子をたどる
   const byName = Object.fromEntries(list.map(x=>[x.name, x]));
   const referenced = new Set(); list.forEach(x=>deps[x.name].forEach(r=>{ if (byName[r]) referenced.add(r); }));
   const ordered = [], placed = new Set();
@@ -794,6 +799,9 @@ function compileDefs(d, aliasOrder){
     deps[x.name].forEach(r=>{ if (byName[r]) walk(byName[r], depth+1, x.name); }); };
   list.filter(x=>!referenced.has(x.name)).forEach(x=>walk(x, 0, null));
   list.forEach(x=>walk(x, 0, null));   // 循環などで残ったもの
+  // 記号と表示の順は、設定で並べた行の順（親子関係はツリーのたどり方で決める）
+  const rank = Object.fromEntries(list.map((x,i)=>[x.name, i]));
+  ordered.sort((a,b)=>rank[a.name] - rank[b.name]);
   list = ordered.map((x,i)=>({ ...x, letter: letterOf(i), formula: x.node ? exprText(x.node, n=>n) : "" }));
   const usesAmount = list.some(x=>deps[x.name].includes(AMOUNT_NAME));
   const roots = list.filter(x=>x.depth === 0);
@@ -1237,12 +1245,34 @@ let defSeq = 0;
 function addItemDefRow(x){
   const i = defSeq++;
   const row = document.createElement("div"); row.className = "def"; row.dataset.id = x.id || ("i" + Date.now().toString(36) + Math.random().toString(36).slice(2,6));
-  row.innerHTML = `<span class="lt"></span><input class="n" id="dName${i}" maxlength="30" placeholder="例：送金額" aria-label="項目名"><input class="f" id="dF${i}" maxlength="200" placeholder="空欄なら手入力（例：B + C）" aria-label="計算式"><input class="d" id="dDesc${i}" maxlength="120" placeholder="例：毎月振り込む合計" aria-label="定義"><button type="button" aria-label="この項目を削除">削除</button>`;
+  row.innerHTML = `<span class="lt"></span><input class="n" id="dName${i}" maxlength="30" placeholder="例：送金額" aria-label="項目名"><input class="f" id="dF${i}" maxlength="200" placeholder="空欄なら手入力（例：B + C）" aria-label="計算式"><input class="d" id="dDesc${i}" maxlength="120" placeholder="例：毎月振り込む合計" aria-label="定義"><span class="ops"><button type="button" class="mv up" aria-label="上へ移動" title="上へ">▲</button><button type="button" class="mv dn" aria-label="下へ移動" title="下へ">▼</button><button type="button" class="del" aria-label="この項目を削除">削除</button></span>`;
   row.querySelector(`#dName${i}`).value = x.name || ""; row.querySelector(`#dF${i}`).value = x.formula || ""; row.querySelector(`#dDesc${i}`).value = x.desc || "";
   const nm = row.querySelector(`#dName${i}`); nm.dataset.prev = x.name || ""; nm.readOnly = $("settingsForm").dataset.page === "formulas";
   nm.addEventListener("change", ()=>{ renameInFormulas(nm.dataset.prev, nm.value.trim()); nm.dataset.prev = nm.value.trim(); renderStructure(); });
-  row.querySelector("button").addEventListener("click", ()=>{ row.remove(); renderStructure(); });
+  row.querySelector("button.del").addEventListener("click", ()=>{ row.remove(); renderStructure(); });
+  row.querySelector("button.up").addEventListener("click", ()=>moveItemRow(row, -1));
+  row.querySelector("button.dn").addEventListener("click", ()=>moveItemRow(row, 1));
+  // 左の記号をつかんでドラッグしても並び替えられる
+  const lt = row.querySelector(".lt"); lt.title = "ドラッグで並び替え";
+  lt.addEventListener("pointerdown", ()=>{ row.draggable = true; });
+  lt.addEventListener("pointerup", ()=>{ if (!row.classList.contains("dragging")) row.draggable = false; });
+  row.addEventListener("dragstart", e=>{ dragRow = row; row.classList.add("dragging"); e.dataTransfer.effectAllowed = "move"; try { e.dataTransfer.setData("text/plain", ""); } catch(_){} canonFormulas(); });
+  row.addEventListener("dragend", ()=>{ row.draggable = false; row.classList.remove("dragging"); dragRow = null; renderStructure(); });
   $("itemDefBox").appendChild(row); renderStructure(); return row;
+}
+let dragRow = null;
+/* 並び替えの前に、式の中の記号（A・B…）を項目名に置き換える。記号は行の順で決まるので、並びが変わると指す項目が変わってしまうため */
+function canonFormulas(){
+  const d = readDefs(); const c = compileDefs(d, d.itemsRaw);
+  const byName = Object.fromEntries(c.items.map(x=>[x.name, x]));
+  [...$("itemDefBox").querySelectorAll(".def")].forEach(r=>{ const f = r.querySelector("input.f"), it = byName[r.querySelector("input.n").value.trim()];
+    if (it && f.value.trim() && it.node) f.value = it.formula; });
+}
+function moveItemRow(row, dir){
+  const sib = dir < 0 ? row.previousElementSibling : row.nextElementSibling; if (!sib) return;
+  canonFormulas();
+  dir < 0 ? sib.before(row) : sib.after(row);
+  renderStructure(); row.querySelector(dir < 0 ? "button.up" : "button.dn").focus();
 }
 /* 設定欄の行の順に記号を振り直し、構成の式をその場で表示する */
 function renderStructure(){
@@ -1662,6 +1692,13 @@ $("goDefs").addEventListener("click", ()=>openProject(cur, "items"));
 $("projTabs").addEventListener("click", e=>{ const b = e.target.closest("button[data-v]"); if (b) openProject(cur, b.dataset.v); });
 $("addItemDef").addEventListener("click", ()=>addItemDefRow({}).querySelector("input").focus());
 $("itemDefBox").addEventListener("input", renderStructure);
+$("itemDefBox").addEventListener("dragover", e=>{
+  if (!dragRow) return; e.preventDefault();
+  const over = e.target.closest(".def"); if (!over || over === dragRow) return;
+  const r = over.getBoundingClientRect(); (e.clientY < r.top + r.height/2) ? over.before(dragRow) : over.after(dragRow);
+  [...$("itemDefBox").querySelectorAll(".def")].forEach((x,i)=>{ x.querySelector(".lt").textContent = letterOf(i); });
+});
+$("itemDefBox").addEventListener("drop", e=>{ if (dragRow) e.preventDefault(); });
 $("constBox").addEventListener("input", renderStructure);
 $("addConst").addEventListener("click", ()=>addConstRow({}).querySelector("input").focus());
 $("addTransfer").addEventListener("click", ()=>{ addTransferRow({ date: todayStr(), kind: isSimple() ? "repay" : "monthEnd" }).querySelector("input").focus(); });
@@ -1710,7 +1747,7 @@ $("settingsForm").addEventListener("submit", async ev=>{
   const tidy = f=>{ try { const n = f && parseExpr(f, lchk.names, lchk.alias); return n ? exprText(n, x=>x) : ""; } catch(_){ return f; } };
   s.ledgerFx = { repay: tidy(s.ledgerFx.repay), balance: tidy(s.ledgerFx.balance) };
   s.ledgerCols = s.ledgerCols.map(c=>({ name: c.name, formula: tidy(c.formula) }));
-  // 大きい順に並べ替え、式は記号ではなく項目名で保存する（並びが変わっても式が崩れないように）
+  // 行の順のまま保存し、式は記号ではなく項目名で保存する（並びが変わっても式が崩れないように）
   s.items = chk.items.map(x=>({ id: x.id, name: x.name, formula: x.formula, desc: x.desc || "" }));
   delete s.itemsRaw;
   try { await persistSettings(s); flash("sToast","設定を保存しました。"); } catch(_){ flash("sToast","保存できませんでした。"); }
