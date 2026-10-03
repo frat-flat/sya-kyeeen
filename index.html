@@ -138,18 +138,23 @@ table.projs tr.done td{opacity:.6}
 .side-brand{padding:0 4px 14px;color:var(--ink)}
 .side-brand svg{display:block;width:100%;max-width:230px;height:auto;overflow:visible}
 .logo-word{font-family:"Dela Gothic One","Zen Kaku Gothic New","Hiragino Sans","Yu Gothic",sans-serif;font-weight:900;font-size:30px;fill:#fff;stroke:#111;stroke-width:2.4;stroke-linejoin:round;paint-order:stroke;filter:drop-shadow(1.5px 1.5px 0 #111)}
-.logo .yen{font-family:"Dela Gothic One","Hiragino Sans",sans-serif;font-weight:900;fill:url(#lgGold);stroke:#8a5a00;stroke-width:.6;paint-order:stroke}
+.logo .ym{fill:none;stroke-linecap:butt;stroke-linejoin:miter}
+.logo .ym-edge{stroke:#6e4700;stroke-width:3.3}
+.logo .ym-body{stroke:url(#lgYen);stroke-width:2}
+.logo .ym-glint{fill:#fffbe6;stroke:#d9a520;stroke-width:.35}
 @media (prefers-reduced-motion:no-preference){
   .logo .brake{animation:brake .9s cubic-bezier(.2,.9,.3,1.3) both}
   .logo .speed,.logo .skid{animation:fadein .6s ease-out both}
   .logo .stop{animation:pop .5s .55s ease-out both}
   .logo .tw{transform-box:fill-box;transform-origin:center;animation:twinkle 2.4s ease-in-out infinite}
   .logo .tw.d2{animation-delay:.8s} .logo .tw.d3{animation-delay:1.6s}
+  .logo .ym-glint{transform-box:fill-box;transform-origin:center;animation:glint 2.4s ease-in-out infinite}
 }
 @keyframes brake{0%{transform:translateX(-60px);opacity:0}55%{transform:translateX(6px)}75%{transform:translateX(-2px)}100%{transform:none;opacity:1}}
 @keyframes fadein{from{opacity:0}}
 @keyframes pop{from{opacity:0;transform:scale(.6)}}
-@keyframes twinkle{0%,100%{transform:scale(.55) rotate(0);opacity:.55}50%{transform:scale(1.15) rotate(45deg);opacity:1}}
+@keyframes twinkle{0%,100%{transform:scale(.78) rotate(-6deg);opacity:.6}50%{transform:scale(1.08) rotate(4deg);opacity:1}}
+@keyframes glint{0%,35%,100%{transform:scale(0);opacity:0}50%{transform:scale(1.2) rotate(45deg);opacity:1}65%{transform:scale(0);opacity:0}}
 .side button{width:100%;text-align:left;border:none;background:none;border-radius:6px;color:var(--ink)}
 .side-head{font-weight:700;padding:9px 10px;display:flex;justify-content:space-between;align-items:center}
 .side-head .count{font-size:.75rem;font-weight:500;color:var(--muted)}
@@ -246,6 +251,12 @@ details summary{cursor:pointer;font-family:var(--font-display);font-weight:700;f
   <div class="side-brand"><svg class="logo" viewBox="0 0 240 70" role="img" aria-label="シャッキーーン">
     <defs>
       <linearGradient id="lgGold" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff0a8"/><stop offset=".5" stop-color="#f2c12e"/><stop offset="1" stop-color="#b8820a"/></linearGradient>
+      <linearGradient id="lgYen" gradientUnits="userSpaceOnUse" x1="0" y1="-9" x2="0" y2="9"><stop offset="0" stop-color="#fff4b8"/><stop offset=".45" stop-color="#f5c531"/><stop offset="1" stop-color="#b07a06"/></linearGradient>
+      <g id="yenMark" transform="skewX(-12)">
+        <path class="ym ym-edge" d="M-6.6-8.6L0 .4L6.6-8.6M0 .4V9.2M-5.4 1.9H5.4M-5.4 5.4H5.4"/>
+        <path class="ym ym-body" d="M-6.6-8.6L0 .4L6.6-8.6M0 .4V9.2M-5.4 1.9H5.4M-5.4 5.4H5.4"/>
+        <path class="ym-glint" d="M7.5-11.5l.8 2.2 2.2.8-2.2.8-.8 2.2-.8-2.2-2.2-.8 2.2-.8z"/>
+      </g>
       <linearGradient id="lgFade" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="currentColor" stop-opacity="0"/><stop offset="1" stop-color="currentColor" stop-opacity=".85"/></linearGradient>
     </defs>
     <g class="speed" fill="url(#lgFade)">
@@ -254,10 +265,10 @@ details summary{cursor:pointer;font-family:var(--font-display);font-weight:700;f
     <path class="skid" d="M34 57.6L214 55.6v3.2z" fill="url(#lgFade)"/>
     <g class="stop" fill="currentColor"><path d="M222 24l9-7 1.2 1.4-8.6 7.4z"/><path d="M224.5 36.2h11v1.8h-11z"/></g>
     <g class="brake"><text class="logo-word" x="0" y="0" transform="translate(34 48) skewX(9)" textLength="182" lengthAdjust="spacingAndGlyphs">シャッキーーン</text></g>
-    <text class="tw yen" x="22" y="16" style="font-size:18px">￥</text>
-    <text class="tw yen d2" x="138" y="12" style="font-size:11px">￥</text>
-    <text class="tw yen d3" x="222" y="17" style="font-size:22px">￥</text>
-    <text class="tw yen d2" x="214" y="72" style="font-size:10px">￥</text>
+    <g transform="translate(30 11) scale(.85)"><use class="tw" href="#yenMark"/></g>
+    <g transform="translate(143 9) scale(.5)"><use class="tw d2" href="#yenMark"/></g>
+    <g transform="translate(236 8) scale(.92)"><use class="tw d3" href="#yenMark"/></g>
+    <g transform="translate(219 66) scale(.45)"><use class="tw d2" href="#yenMark"/></g>
   </svg></div>
   <button type="button" class="side-head" id="navProjects"><span>プロジェクト</span><span class="count" id="navCount"></span></button>
   <div class="side-list" id="navList"></div>
