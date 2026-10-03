@@ -477,11 +477,13 @@ function hasVal(v){ return v !== null && v !== undefined && String(v).trim() !==
 function calcMonth(e, s, prev){
   if (s.inputMode === "simple"){
     // 返済額を直接入力する方式：その月の返済の記録を合計して残高から差し引く
+    // 返済に数えるのは残高（借入額−それまでの返済）の範囲まで。借入がなければ返済額は0円、残高も0円で、超えた分は「借入額を超えた支払」として別に出す
     const paid = (e.transfers || []).reduce((a,t)=>a+Math.max(0, toNum(t.amount)), 0);
-    const end = prev - paid;
-    return { simple:true, F:0, R:0, rt:"none", rv:0, repay:paid, net:0, loan:0, extraAuto:0, total:paid, P:0, rewardInPrepay:0, loanInPrepay:0,
-      monthEnd:paid, rewardRemain:0, loanRemain:0, M:0, prev, end, repayTotal:paid, items:[{ name:UNCLASSIFIED, gross:0, repay:paid, net:0 }],
-      notes: end < 0 ? [`返済額の合計が残高を ${yen(-end)} 上回っています。`] : [] };
+    const repay = Math.min(paid, Math.max(0, prev)), over = paid - repay;
+    const end = Math.max(0, prev - repay);
+    return { simple:true, F:0, R:0, rt:"none", rv:0, repay, net:0, loan:0, extraAuto:0, total:paid, P:0, rewardInPrepay:0, loanInPrepay:0,
+      monthEnd:paid, rewardRemain:0, loanRemain:0, M:0, prev, end, repayTotal:repay, paid, over, items:[{ name:UNCLASSIFIED, gross:0, repay, net:0 }],
+      notes: over > 0 ? [toNum(s.startBalance) > 0 ? `支払額が残高を ${yen(over)} 上回っています。上回った分は返済額に含めていません。` : `借入額が登録されていないため、この支払 ${yen(over)} は返済額に含めていません。「基本情報」で借入額を登録すると返済として計算されます。`] : [] };
   }
   const notes = [];
   const F = Math.max(0, hasVal(e.fixed) ? toNum(e.fixed) : toNum(s.defaultFixed));
@@ -1203,20 +1205,25 @@ function renderCalc(){
   const e = readForm();
   const r = calcMonth(e, settings, prevBalanceFor(e.month || "9999-99"));
   if (r.simple){
-    const before = buildLedger(priorRecords(e.month || "9999-99"), settings).reduce((a,x)=>a+x.r.repayTotal, 0);
+    const key = e.month || "9999-99";
+    const before = buildLedger(priorRecords(key), settings).reduce((a,x)=>a+x.r.repayTotal, 0);
     const n = (e.transfers || []).filter(t=>t.amount > 0).length;
-    $("sPaidLabel").textContent = "この取引の返済額";
-    $("sPaid").textContent = yen(r.repayTotal);
-    const known = balKnown(settings);
-    $("sEnd").textContent = balText(settings, r.end);
-    $("sEnd").previousElementSibling.textContent = known ? "返済後の残高" : "残高（借入額が未設定）";
-    $("sCum").textContent = `累計返済額 ${yen(before + r.repayTotal)}`;
+    // 登録済みの取引にこの入力を加えたときの、最終支払日時点の累計返済額と残高
+    const all = months.filter(m=>m.month !== editingId).concat(e.month ? [e] : []);
+    const rowsAll = buildLedger(all, settings), lastR = rowsAll[rowsAll.length-1];
+    const lastDate = lastR ? (isTxKey(lastR.e.month) ? lastR.e.month.slice(0,10) : ((lastR.e.transfers || []).map(t=>t.date).filter(Boolean).sort().pop() || "")) : "";
+    const asOf = lastDate ? (()=>{ const [y,m,d] = lastDate.split("-"); return `${y}年${Number(m)}月${Number(d)}日`; })() : "";
+    $("sPaidLabel").textContent = asOf ? `${asOf}時点の返済額` : "最終支払日時点の返済額";
+    $("sPaid").textContent = yen(rowsAll.reduce((a,x)=>a+x.r.repayTotal, 0));
+    $("sEnd").textContent = yen(lastR ? lastR.r.end : toNum(settings.startBalance));
+    $("sEnd").previousElementSibling.textContent = asOf ? `${asOf}時点の残高` : "残高";
+    $("sCum").textContent = `借入額 ${yen(toNum(settings.startBalance))}`;
     $("rSteps").innerHTML = [
-      known ? `この取引より前の残高は <b>${yen(r.prev)}</b>、累計返済額は ${yen(before)} です。` : `この取引より前の累計返済額は ${yen(before)} です。`,
-      n ? `この取引で <b class="down">${yen(r.repayTotal)}</b> を返済します。` : `返済額がまだ入力されていません。`,
-      known ? `返済後の残高は <b>${yen(r.end)}</b>、累計返済額は <b class="down">${yen(before + r.repayTotal)}</b> になります。` : `累計返済額は <b class="down">${yen(before + r.repayTotal)}</b> になります。`
+      `借入額は <b>${yen(toNum(settings.startBalance))}</b>${toNum(settings.startBalance) > 0 ? "" : "（未登録）"}です。この取引より前の返済額の累計は ${yen(before)}、残高は <b>${yen(r.prev)}</b> です。`,
+      !n ? `支払額がまだ入力されていません。` : r.over > 0 ? `この取引の支払額は ${yen(r.paid)} で、そのうち返済に充てるのは <b class="down">${yen(r.repayTotal)}</b> です（残高を超える ${yen(r.over)} は含めません）。` : `この取引で <b class="down">${yen(r.repayTotal)}</b> を返済します。`,
+      `返済後の残高は <b>${yen(r.end)}</b>（借入額 − 返済額の累計 ${yen(before + r.repayTotal)}）になります。`
     ].map(x=>`<li>${x}</li>`).join("");
-    $("rNotes").innerHTML = (known ? r.notes : []).map(n=>`<div class="note">${esc(n)}</div>`).join("");
+    $("rNotes").innerHTML = r.notes.map(n=>`<div class="note">${esc(n)}</div>`).join("");
     return;
   }
   $("rTotal").textContent = yen(r.total);
@@ -1268,7 +1275,7 @@ function renderLedger(){
   const sum = k => rows.reduce((a,x)=>a+x.r[k],0);
   const bal = rows.length ? rows[rows.length-1].r.end : toNum(settings.startBalance);
   $("kBalance").textContent = balText(settings, bal);
-  $("kLoan").textContent = isSimple() ? (balKnown(settings) ? yen(toNum(settings.startBalance)) : "未設定") : yen(sum("loan"));
+  $("kLoan").textContent = isSimple() ? (balKnown(settings) ? yen(toNum(settings.startBalance)) : "未登録（0円）") : yen(sum("loan"));
   $("kRepay").textContent = yen(sum("repayTotal"));
   const lastRow = rows[rows.length-1];
   $("kLastLabel").textContent = isSimple() ? (lastRow ? `直近の取引（${monthLabel(lastRow.e.month)}）` : "直近の取引の返済額") : lastRow ? `${monthLabel(lastRow.e.month)}の返済額` : "直近月の返済額";
@@ -1289,9 +1296,9 @@ function renderLedger(){
       const flow = [...new Set(trs.map(t=>`${transferWho(t,"from")} → ${transferWho(t,"to")}`))].join("、") || "—";
       const memo = [e.memo, ...trs.map(t=>t.memo)].filter(Boolean).join("・");
       const when = isTxKey(e.month) ? monthLabel(e.month) : `${dates}（${monthLabel(e.month)}分）`;
-      return `<tr data-id="${esc(e.month)}" class="${e.month===editingId?"editing":""}" tabindex="0"><td class="memo">${esc(when)}</td><td class="down">${yen(r.repayTotal)}</td><td class="bal down">${yen(c)}</td>${items.map(x=>`<td>${yen(itemSum(e, x.id))}</td>`).join("")}<td class="memo" title="${esc(flow)}">${esc(flow)}</td><td class="bal">${balText(settings, r.end)}</td><td class="memo" title="${esc(memo)}">${esc(memo)}</td></tr>`; }).join("");
-    tb.innerHTML = `<thead><tr><th class="memo">支払日</th><th>返済額</th><th>累計返済額</th>${items.map(x=>`<th>${esc(x.name)}</th>`).join("")}<th class="memo">振込元 → 振込先</th><th>残高</th><th class="memo">メモ</th></tr></thead><tbody>${lines}</tbody>` +
-      `<tfoot><tr><td>合計（${rows.length}件）</td><td>${yen(sum("repayTotal"))}</td><td>${yen(sum("repayTotal"))}</td>${items.map(x=>`<td>${yen(rows.reduce((a,{e})=>a+itemSum(e, x.id),0))}</td>`).join("")}<td></td><td>${balText(settings, bal)}</td><td></td></tr></tfoot>`;
+      return `<tr data-id="${esc(e.month)}" class="${e.month===editingId?"editing":""}" tabindex="0"><td class="memo">${esc(when)}</td><td>${yen(r.paid)}</td><td class="down">${yen(r.repayTotal)}</td><td class="bal down">${yen(c)}</td>${items.map(x=>`<td>${yen(itemSum(e, x.id))}</td>`).join("")}<td class="memo" title="${esc(flow)}">${esc(flow)}</td><td class="bal">${balText(settings, r.end)}</td><td class="memo" title="${esc(memo)}">${esc(memo)}</td></tr>`; }).join("");
+    tb.innerHTML = `<thead><tr><th class="memo">支払日</th><th>支払額</th><th>うち返済額</th><th>累計返済額</th>${items.map(x=>`<th>${esc(x.name)}</th>`).join("")}<th class="memo">振込元 → 振込先</th><th>残高</th><th class="memo">メモ</th></tr></thead><tbody>${lines}</tbody>` +
+      `<tfoot><tr><td>合計（${rows.length}件）</td><td>${yen(sum("paid"))}</td><td>${yen(sum("repayTotal"))}</td><td>${yen(sum("repayTotal"))}</td>${items.map(x=>`<td>${yen(rows.reduce((a,{e})=>a+itemSum(e, x.id),0))}</td>`).join("")}<td></td><td>${balText(settings, bal)}</td><td></td></tr></tfoot>`;
     return;
   }
   const head = `<thead><tr><th>月</th><th>その月の返済額</th><th>累計返済額</th><th>固定額</th><th>報酬</th><th>返済充当</th><th>本人報酬</th><th>貸付（補填）</th><th>先払い</th><th>月末振込</th><th>追加返済</th><th>残高</th><th class="memo">メモ</th></tr></thead>`;
@@ -1365,7 +1372,7 @@ function syncSettingsRule(){
 function isSimple(){ return settings.inputMode === "simple"; }
 /* 返済額を直接入力する方式で借入額が未設定なら、残高は出さない（累計返済額だけを追う） */
 function balKnown(s){ return s.inputMode !== "simple" || toNum(s.startBalance) > 0; }
-function balText(s, v){ return balKnown(s) ? yen(v) : "—"; }
+function balText(s, v){ return yen(v); }
 function applyMode(){
   const sm = isSimple();
   $("calcPanel").classList.toggle("simple", sm);
