@@ -227,18 +227,7 @@ details summary{cursor:pointer;font-family:var(--font-display);font-weight:700;f
       <h3 style="font-size:1rem">新しいプロジェクト</h3>
       <div class="row">
         <div class="field"><label for="pName">誰の（対象者）</label><input id="pName" maxlength="40" placeholder="例：山田さん" required></div>
-        <div class="field"><label for="pTitle">何の（返済・案件の内容）</label><input id="pTitle" maxlength="60" placeholder="例：車のローン立替"></div>
-      </div>
-      <div class="row">
-        <div class="field"><label for="pMode">毎月の入力方法</label><select id="pMode"><option value="simple">返済額を直接入力</option><option value="calc">報酬から計算する</option></select></div>
-        <div class="field"><label for="pStart" id="pStartLabel">借入額（返済前の残高）</label><div class="yen"><input id="pStart" inputmode="numeric" placeholder="0"></div></div>
-      </div>
-      <div class="row calc-only">
-        <div class="field"><label for="pFixed">毎月の固定支払額</label><div class="yen"><input id="pFixed" inputmode="numeric" placeholder="400,000"></div></div>
-      </div>
-      <div class="row calc-only">
-        <div class="field"><label for="pRuleType">返済充当の方式</label><select id="pRuleType"><option value="amt">固定額</option><option value="pct">報酬の割合</option></select></div>
-        <div class="field"><label for="pRuleValue" id="pRuleLabel">毎月の充当額</label><div class="yen" id="pRuleWrap"><input id="pRuleValue" inputmode="decimal" placeholder="100,000"></div></div>
+        <div class="field"><label for="pTitle">何の（返済・案件の内容）</label><input id="pTitle" maxlength="60" placeholder="例：車のローン立替" required></div>
       </div>
       <div class="field"><label for="pMemo">メモ</label><input id="pMemo" maxlength="120" placeholder="任意"></div>
       <div class="btns"><button type="submit" class="primary" id="projSave">作成して開く</button><button type="button" id="projCancel">やめる</button></div>
@@ -386,7 +375,7 @@ details summary{cursor:pointer;font-family:var(--font-display);font-weight:700;f
           <div class="field"><label for="sRuleValue" id="sRuleLabel">充当額</label><div class="yen" id="sRuleWrap"><input id="sRuleValue" inputmode="decimal"></div></div>
         </div>
         <div class="row">
-          <div class="field"><label for="sStart" id="sStartLabel">開始時点の貸付残高</label><div class="yen"><input id="sStart" inputmode="numeric" placeholder="0"></div><span class="hint">ツールを使い始める前からの借金</span></div>
+          <div class="field"><label for="sStart" id="sStartLabel">開始時点の貸付残高</label><div class="yen"><input id="sStart" inputmode="numeric" placeholder="0"></div><span class="hint" id="sStartHint">ツールを使い始める前からの借金</span></div>
           <div class="field calc-only"><label for="sSurplus">報酬が固定額を上回った月</label><select id="sSurplus"><option value="pay">上回った分も全額支払う</option><option value="repay">上回った分を追加返済に回す</option></select></div>
         </div>
         <fieldset>
@@ -617,7 +606,7 @@ function projSummary(p){
   const s = projSettings(p), ms = allMonths.filter(m=>pidOf(m)===p.id);
   const rows = buildLedger(ms, s);
   const sum = k => rows.reduce((a,x)=>a+x.r[k],0);
-  return { p, count: rows.length, last: rows.length ? rows[rows.length-1].e.month : "", balance: rows.length ? rows[rows.length-1].r.end : toNum(s.startBalance),
+  return { p, s, count: rows.length, last: rows.length ? rows[rows.length-1].e.month : "", balance: rows.length ? rows[rows.length-1].r.end : toNum(s.startBalance),
     repay: sum("repayTotal"), lastRepay: rows.length ? rows[rows.length-1].r.repayTotal : 0, hasNow: ms.some(m=>m.month===ymNow()), done: p.status === "done" };
 }
 function renderDash(){
@@ -632,7 +621,7 @@ function renderDash(){
       <td>${x.done ? '<span class="tag off">完了</span>' : '<span class="tag ok">進行中</span>'}</td>
       <td>${x.done ? "—" : x.hasNow ? '<span class="tag ok">入力済み</span>' : '<span class="tag todo">未入力</span>'}</td>
       <td>${x.last ? monthLabel(x.last) : "—"}</td><td class="down">${x.last ? yen(x.lastRepay) : "—"}</td>
-      <td class="bal down">${yen(x.repay)}</td><td>${x.count}か月</td><td class="up">${yen(x.balance)}</td></tr>`).join("")
+      <td class="bal down">${yen(x.repay)}</td><td>${x.count}か月</td><td class="up">${balText(x.s, x.balance)}</td></tr>`).join("")
       : `<tr><td colspan="8" class="empty">進行中のプロジェクトはありません。「完了も表示」で完了したものを確認できます。</td></tr>`) + "</tbody>";
   renderNav(all);
 }
@@ -649,7 +638,7 @@ function setNav(open){
   $("menuBtn").setAttribute("aria-expanded", String(open));
 }
 function showNewProject(){
-  $("projForm").reset(); syncProjRule(); syncProjMode(); $("projForm").hidden = false; $("pName").focus();
+  $("projForm").reset(); $("projForm").hidden = false; $("pName").focus();
 }
 function openProject(id){ location.hash = id ? "#p=" + encodeURIComponent(id) : "#"; }
 function route(){
@@ -883,14 +872,16 @@ function renderCalc(){
     const n = (e.transfers || []).filter(t=>t.amount > 0).length;
     $("sPaidLabel").textContent = e.month ? `${monthLabel(e.month)}の返済額` : "この月の返済額";
     $("sPaid").textContent = yen(r.repayTotal);
-    $("sEnd").textContent = yen(r.end);
+    const known = balKnown(settings);
+    $("sEnd").textContent = balText(settings, r.end);
+    $("sEnd").previousElementSibling.textContent = known ? "返済後の残高" : "残高（借入額が未設定）";
     $("sCum").textContent = `累計返済額 ${yen(before + r.repayTotal)}`;
     $("rSteps").innerHTML = [
-      `前月までの残高は <b>${yen(r.prev)}</b>、累計返済額は ${yen(before)} です。`,
+      known ? `前月までの残高は <b>${yen(r.prev)}</b>、累計返済額は ${yen(before)} です。` : `前月までの累計返済額は ${yen(before)} です。`,
       n ? `この月は ${n} 回、合計 <b class="down">${yen(r.repayTotal)}</b> を返済しました。` : `この月の返済はまだ記録されていません。`,
-      `返済後の残高は <b>${yen(r.end)}</b>、累計返済額は <b class="down">${yen(before + r.repayTotal)}</b> になります。`
+      known ? `返済後の残高は <b>${yen(r.end)}</b>、累計返済額は <b class="down">${yen(before + r.repayTotal)}</b> になります。` : `累計返済額は <b class="down">${yen(before + r.repayTotal)}</b> になります。`
     ].map(x=>`<li>${x}</li>`).join("");
-    $("rNotes").innerHTML = r.notes.map(n=>`<div class="note">${esc(n)}</div>`).join("");
+    $("rNotes").innerHTML = (known ? r.notes : []).map(n=>`<div class="note">${esc(n)}</div>`).join("");
     return;
   }
   $("rTotal").textContent = yen(r.total);
@@ -941,8 +932,8 @@ function renderLedger(){
   const rows = buildLedger(months, settings);
   const sum = k => rows.reduce((a,x)=>a+x.r[k],0);
   const bal = rows.length ? rows[rows.length-1].r.end : toNum(settings.startBalance);
-  $("kBalance").textContent = yen(bal);
-  $("kLoan").textContent = yen(isSimple() ? toNum(settings.startBalance) : sum("loan"));
+  $("kBalance").textContent = balText(settings, bal);
+  $("kLoan").textContent = isSimple() ? (balKnown(settings) ? yen(toNum(settings.startBalance)) : "未設定") : yen(sum("loan"));
   $("kRepay").textContent = yen(sum("repayTotal"));
   const lastRow = rows[rows.length-1];
   $("kLastLabel").textContent = lastRow ? `${monthLabel(lastRow.e.month)}の返済額` : "直近月の返済額";
@@ -959,9 +950,9 @@ function renderLedger(){
       const trs = (e.transfers || []).filter(t=>t.amount > 0);
       const dates = trs.map(t=>fmtDate(t.date)).join("、") || "—";
       const flow = [...new Set(trs.map(t=>`${transferWho(t,"from")} → ${transferWho(t,"to")}`))].join("、") || "—";
-      return `<tr data-id="${esc(e.month)}" class="${e.month===editingId?"editing":""}" tabindex="0"><td>${monthLabel(e.month)}</td><td class="down">${yen(r.repayTotal)}</td><td class="bal down">${yen(c)}</td><td>${trs.length}回</td><td class="memo">${esc(dates)}</td><td class="memo" title="${esc(flow)}">${esc(flow)}</td><td class="bal">${yen(r.end)}</td><td class="memo" title="${esc(e.memo)}">${esc(e.memo)}</td></tr>`; }).join("");
+      return `<tr data-id="${esc(e.month)}" class="${e.month===editingId?"editing":""}" tabindex="0"><td>${monthLabel(e.month)}</td><td class="down">${yen(r.repayTotal)}</td><td class="bal down">${yen(c)}</td><td>${trs.length}回</td><td class="memo">${esc(dates)}</td><td class="memo" title="${esc(flow)}">${esc(flow)}</td><td class="bal">${balText(settings, r.end)}</td><td class="memo" title="${esc(e.memo)}">${esc(e.memo)}</td></tr>`; }).join("");
     tb.innerHTML = `<thead><tr><th>月</th><th>その月の返済額</th><th>累計返済額</th><th>回数</th><th class="memo">支払日</th><th class="memo">振込元 → 振込先</th><th>残高</th><th class="memo">メモ</th></tr></thead><tbody>${lines}</tbody>` +
-      `<tfoot><tr><td>合計</td><td>${yen(sum("repayTotal"))}</td><td>${yen(sum("repayTotal"))}</td><td></td><td></td><td></td><td>${yen(bal)}</td><td></td></tr></tfoot>`;
+      `<tfoot><tr><td>合計</td><td>${yen(sum("repayTotal"))}</td><td>${yen(sum("repayTotal"))}</td><td></td><td></td><td></td><td>${balText(settings, bal)}</td><td></td></tr></tfoot>`;
     return;
   }
   const head = `<thead><tr><th>月</th><th>その月の返済額</th><th>累計返済額</th><th>固定額</th><th>報酬</th><th>返済充当</th><th>本人報酬</th><th>貸付（補填）</th><th>先払い</th><th>月末振込</th><th>追加返済</th><th>残高</th><th class="memo">メモ</th></tr></thead>`;
@@ -1022,6 +1013,7 @@ function syncSettingsMode(){
   const sm = $("sMode").value === "simple";
   $("settingsForm").classList.toggle("simple", sm);
   $("sStartLabel").textContent = sm ? "借入額（返済前の残高）" : "開始時点の貸付残高";
+  $("sStartHint").textContent = sm ? "任意。入れると残高も表示します" : "ツールを使い始める前からの借金";
 }
 function syncSettingsRule(){
   const pct = $("sRuleType").value === "pct";
@@ -1029,11 +1021,15 @@ function syncSettingsRule(){
   $("sRuleLabel").textContent = pct ? "報酬に対する割合" : "毎月の充当額";
 }
 function isSimple(){ return settings.inputMode === "simple"; }
+/* 返済額を直接入力する方式で借入額が未設定なら、残高は出さない（累計返済額だけを追う） */
+function balKnown(s){ return s.inputMode !== "simple" || toNum(s.startBalance) > 0; }
+function balText(s, v){ return balKnown(s) ? yen(v) : "—"; }
 function applyMode(){
   const sm = isSimple();
   $("calcPanel").classList.toggle("simple", sm);
   $("matrixPanel").hidden = sm; $("howPanel").hidden = sm;
   $("chartTitle").textContent = sm ? "残高の推移" : "貸付残高の推移";
+  $("chart").closest("section").hidden = !balKnown(settings);
   $("trLegend").textContent = sm ? "返済の記録（支払日・返済額・振込元・振込先）" : "振込の記録（支払日・振込元・振込先）";
   $("addTransfer").textContent = sm ? "＋ 返済を追加" : "＋ 振込を追加";
   $("kBalance").previousElementSibling.textContent = sm ? "現在の残高" : "現在の貸付残高";
@@ -1187,30 +1183,13 @@ $("navNew").addEventListener("click", ()=>{
 });
 let pendingNew = false;   // 別のプロジェクトから「新規」を押したとき、ダッシュボードに戻ってから入力欄を開く
 window.addEventListener("hashchange", route);
-function syncProjMode(){
-  const sm = $("pMode").value === "simple";
-  $("projForm").classList.toggle("simple", sm);
-  $("pStartLabel").textContent = sm ? "借入額（返済前の残高）" : "開始時点の貸付残高";
-}
-$("pMode").addEventListener("change", syncProjMode);
-function syncProjRule(){
-  const pct = $("pRuleType").value === "pct";
-  $("pRuleWrap").classList.toggle("pct", pct);
-  $("pRuleLabel").textContent = pct ? "報酬に対する割合" : "毎月の充当額";
-  $("pRuleValue").placeholder = pct ? "50" : "100,000";
-}
-$("pRuleType").addEventListener("change", syncProjRule);
 $("newProjBtn").addEventListener("click", showNewProject);
 $("projCancel").addEventListener("click", ()=>{ $("projForm").hidden = true; });
 $("projForm").addEventListener("submit", async ev=>{
   ev.preventDefault();
-  const pct = $("pRuleType").value === "pct";
-  const p = { ...pick(DEFAULT_SETTINGS, PROJECT_KEYS), id: newId(), createdAt: Date.now(),
-    inputMode: $("pMode").value, name: $("pName").value.trim(), title: $("pTitle").value.trim(), memo: $("pMemo").value.trim(),
-    defaultFixed: hasVal($("pFixed").value) ? toNum($("pFixed").value) : DEFAULT_SETTINGS.defaultFixed,
-    startBalance: toNum($("pStart").value), ruleType: $("pRuleType").value,
-    ruleValue: hasVal($("pRuleValue").value) ? toNum($("pRuleValue").value) : (pct ? 50 : DEFAULT_SETTINGS.ruleValue),
-    defaultFrom: "", defaultTo: "" };
+  // 作成時は誰の・何の・メモだけ。金額は月ごとの入力や設定で後から入れる
+  const p = { ...pick(DEFAULT_SETTINGS, PROJECT_KEYS), id: newId(), createdAt: Date.now(), startBalance: 0,
+    name: $("pName").value.trim(), title: $("pTitle").value.trim(), memo: $("pMemo").value.trim() };
   $("projSave").disabled = true;
   try {
     await persistMeta({ accounts: meta.accounts, projects: meta.projects.concat([p]) });
