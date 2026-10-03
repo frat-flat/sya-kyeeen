@@ -211,6 +211,11 @@ body.sorting,body.sorting *{cursor:grabbing!important;user-select:none}
 .ferr{background:var(--warn-bg);color:var(--warn-ink);border-radius:6px;padding:8px 12px;font-size:.85rem}
 .parts{display:grid;grid-template-columns:minmax(0,1fr);gap:8px;border-top:1px dashed var(--line);padding-top:10px}
 .parts .field label .fx{font-size:.7rem;color:var(--accent);margin-left:4px}
+.lines{display:grid;gap:6px;border-top:1px dashed var(--line);padding-top:10px}
+.line{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr) minmax(0,.6fr) minmax(0,1.2fr) auto;gap:6px;align-items:center}
+.line .sub{grid-column:1/-1;font-size:.75rem;color:var(--muted);margin-top:-2px}
+.lineshead{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr) minmax(0,.6fr) minmax(0,1.2fr) auto;gap:6px;font-size:.72rem;color:var(--muted)}
+@media (max-width:640px){ .line,.lineshead{grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto} .lineshead{display:none} .line input.ln{grid-column:1/-1} .line select{grid-column:1/3} }
 .ptitle{grid-column:1/-1;font-size:.78rem;font-weight:700;color:var(--muted)}
 @media (max-width:640px){ .defhead:not(.const){display:none} .def:not(.const){grid-template-columns:3.2em minmax(0,1fr) auto} .def:not(.const)>input.f,.def:not(.const)>input.d{grid-column:2/-1} .def:not(.const)>button.del{grid-row:1;grid-column:3} }
 body:not(.v-ledger) .lv,body.v-ledger .sv{display:none!important}
@@ -1230,6 +1235,7 @@ function addTransferRow(t){
       <div class="field"><label for="trAmt${i}">金額</label><div class="yen"><input id="trAmt${i}" inputmode="numeric" placeholder="0"></div></div>
     </div>
     <div class="parts" hidden></div>
+    <div class="lines" hidden><div class="ptitle">明細（案件ごと：単価 × 件数 を選んだ内訳項目に入れます）</div><div class="lineshead"><span>案件名</span><span>単価</span><span>件数</span><span>入れる内訳項目</span><span></span></div><div class="linebox"></div><div><button type="button" class="link addline">＋ 明細を追加</button></div></div>
     <div class="row">
       <div class="field"><label for="trFrom${i}">振込元</label><select id="trFrom${i}"></select></div>
       <div class="field"><label for="trTo${i}">振込先</label><select id="trTo${i}"></select></div>
@@ -1261,21 +1267,56 @@ function buildParts(row, t){
   const parts = t.parts || {};
   box.innerHTML = `<div class="ptitle">内訳</div>` + c.items.map(x=>{
     const id = `pt${row.querySelector("input").id}_${x.id}`;
-    return `<div class="field" style="padding-left:${Math.min(x.depth,3)*12}px"><label for="${id}"><span class="lt">${x.letter}</span> ${esc(x.name)}${x.node ? '<span class="fx">自動</span>' : ""}</label><div class="yen"><input id="${id}" data-item="${esc(x.id)}" inputmode="numeric" placeholder="0"${x.node ? " readonly" : ""}></div></div>`;
+    return `<div class="field" style="padding-left:${Math.min(x.depth,3)*12}px"><label for="${id}"><span class="lt">${x.letter}</span> ${esc(x.name)}${x.node ? '<span class="fx">自動</span>' : ""}</label><div class="yen"><input id="${id}" data-item="${esc(x.id)}" inputmode="numeric" placeholder="0"${x.node ? " readonly data-fx" : ""}></div></div>`;
   }).join("");
   c.items.forEach(x=>{ const el = box.querySelector(`input[data-item="${CSS.escape(x.id)}"]`); if (!x.node && parts[x.id]) el.value = fmtInput(parts[x.id]); });
-  box.querySelectorAll("input:not([readonly])").forEach(inp=>inp.addEventListener("blur", ()=>{ if (hasVal(inp.value)) inp.value = fmtInput(toNum(inp.value)) || "0"; }));
+  box.querySelectorAll("input:not([data-fx])").forEach(inp=>inp.addEventListener("blur", ()=>{ if (hasVal(inp.value) && !inp.readOnly) inp.value = fmtInput(toNum(inp.value)) || "0"; }));
+  // 明細：手入力の項目にだけ入れられる
+  const manual = c.items.filter(x=>!x.node), lb = row.querySelector(".lines");
+  lb.hidden = !manual.length;
+  lb._items = manual;
+  lb.querySelector(".addline").onclick = ()=>{ addLine(row, {}).querySelector("input").focus(); };
+  (t.lines || []).forEach(l=>addLine(row, l));
   recalcRow(row);
 }
+let lineSeq = 0;
+function addLine(row, l){
+  const lb = row.querySelector(".lines"), i = lineSeq++, el = document.createElement("div"); el.className = "line";
+  el.innerHTML = `<input class="ln" id="lnName${i}" maxlength="40" placeholder="案件名" aria-label="案件名"><div class="yen"><input class="lp" id="lnPrice${i}" inputmode="numeric" placeholder="単価" aria-label="単価"></div>
+    <input class="lq" id="lnQty${i}" inputmode="decimal" placeholder="件数" aria-label="件数"><select class="li" aria-label="入れる内訳項目"><option value="">入れる項目を選ぶ</option>${lb._items.map(x=>`<option value="${esc(x.id)}">${x.letter} ${esc(x.name)}</option>`).join("")}</select>
+    <button type="button" class="link" aria-label="この明細を削除">削除</button><span class="sub"></span>`;
+  el.querySelector(".ln").value = l.name || ""; el.querySelector(".lp").value = l.price ? fmtInput(l.price) : ""; el.querySelector(".lq").value = hasVal(l.qty) ? l.qty : "";
+  if (l.item && lb._items.some(x=>x.id === l.item)) el.querySelector(".li").value = l.item;
+  const lp = el.querySelector(".lp"); lp.addEventListener("blur", ()=>{ if (hasVal(lp.value)) lp.value = fmtInput(toNum(lp.value)) || "0"; });
+  el.querySelector("button").addEventListener("click", ()=>{ el.remove(); recalcRow(row); renderCalc(); });
+  lb.querySelector(".linebox").appendChild(el);
+  return el;
+}
+function readLines(row){
+  return [...row.querySelectorAll(".line")].map(el=>({ name: el.querySelector(".ln").value.trim(), price: toNum(el.querySelector(".lp").value), qty: toNum(el.querySelector(".lq").value), item: el.querySelector(".li").value }))
+    .filter(l=>l.name || l.price || l.qty);
+}
 function rowInputs(row){
-  const inputs = {}; row.querySelectorAll(".parts input[data-item]:not([readonly])").forEach(el=>{ inputs[el.dataset.item] = toNum(el.value); });
+  const inputs = {}; row.querySelectorAll(".parts input[data-item]:not([data-fx])").forEach(el=>{ inputs[el.dataset.item] = toNum(el.value); });
   return inputs;
 }
 function recalcRow(row){
   const c = projDefs(); if (!c.items.length) return;
   const amt = row.querySelector("input[id^=trAmt]");
+  // 明細がある項目は 単価 × 件数 の合計を入れて、手入力できないようにする
+  const sums = {};
+  row.querySelectorAll(".line").forEach(el=>{ const v = Math.round(toNum(el.querySelector(".lp").value) * toNum(el.querySelector(".lq").value)), k = el.querySelector(".li").value;
+    el.querySelector(".sub").textContent = `小計 ${yen(v)}`; if (k) sums[k] = (sums[k] || 0) + v; });
+  row.querySelectorAll(".parts input[data-item]:not([data-fx])").forEach(el=>{
+    const by = Object.prototype.hasOwnProperty.call(sums, el.dataset.item);
+    // 明細に切り替える前の手入力の値は覚えておき、明細がなくなったら戻す
+    if (by){ if (!el.readOnly) el.dataset.manual = el.value; el.value = fmtInput(sums[el.dataset.item]) || "0"; el.readOnly = true; el.title = "明細の合計"; }
+    else if (el.readOnly){ el.readOnly = false; el.title = ""; el.value = el.dataset.manual || ""; }
+    const lab = el.closest(".field").querySelector("label"); let tag = lab.querySelector(".bylines");
+    if (by && !tag){ tag = document.createElement("span"); tag.className = "fx bylines"; tag.textContent = "明細"; lab.appendChild(tag); } else if (!by && tag) tag.remove();
+  });
   const r = computePayment(c, rowInputs(row), amt.value);
-  row.querySelectorAll(".parts input[readonly]").forEach(el=>{ el.value = fmtInput(r.parts[el.dataset.item]) || "0"; });
+  row.querySelectorAll(".parts input[data-fx]").forEach(el=>{ el.value = fmtInput(r.parts[el.dataset.item]) || "0"; });
   if (c.amountAuto) amt.value = fmtInput(r.amount) || "0";
 }
 function recalcTransfers(){ $("transfersBox").querySelectorAll(".transfer").forEach(recalcRow); }
@@ -1285,7 +1326,7 @@ function readTransfers(){
     const q = sel => r.querySelector(sel);
     const from = q("select[id^=trFrom]").value, to = q("select[id^=trTo]").value;
     const c = projDefs(), calc = c.items.length ? computePayment(c, rowInputs(r), q("input[id^=trAmt]").value) : null;
-    return { date: q("input[type=date]").value, amount: calc ? calc.amount : toNum(q("input[id^=trAmt]").value), ...(c.items.length ? { parts: calc.parts } : {}), kind: q("select[id^=trKind]").value,
+    return { date: q("input[type=date]").value, amount: calc ? calc.amount : toNum(q("input[id^=trAmt]").value), ...(c.items.length ? { parts: calc.parts } : {}), ...(readLines(r).length ? { lines: readLines(r) } : {}), kind: q("select[id^=trKind]").value,
       from, to, fromLabel: accountLabel(findAccount(from)), toLabel: accountLabel(findAccount(to)), memo: q("input[id^=trMemo]").value.trim() };
   }).filter(t=>t.amount || t.date || (t.parts && Object.values(t.parts).some(v=>v)));
 }
@@ -1803,7 +1844,7 @@ $("addMonthEnd").addEventListener("click", ()=>{
   addTransferRow({ date: todayStr(), kind:"monthEnd", amount: r.monthEnd, memo:"" }); syncPrepayFromTransfers(); renderCalc();
 });
 $("transfersBox").addEventListener("input", e=>{ const row = e.target.closest(".transfer"); if (row) recalcRow(row); syncPrepayFromTransfers(); });
-$("transfersBox").addEventListener("change", ()=>{ syncPrepayFromTransfers(); renderCalc(); });
+$("transfersBox").addEventListener("change", e=>{ const row = e.target.closest(".transfer"); if (row) recalcRow(row); syncPrepayFromTransfers(); renderCalc(); });
 $("addAcct").addEventListener("click", ()=>{ addAcctRow({}).querySelector("input").focus(); syncDefaultAcctSelects(); });
 $("acctsBox").addEventListener("input", ()=>syncDefaultAcctSelects());
 $("history").addEventListener("click", e=>{ const tr = e.target.closest("tr[data-id]"); if (tr) openRow(tr.dataset.id); });
