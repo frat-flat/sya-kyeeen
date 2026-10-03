@@ -1,0 +1,12 @@
+{
+  "name": "sya-kyeeen",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "migrate": "node db/migrate.mjs"
+  },
+  "dependencies": {
+    "jose": "^6.2.12",
+    "pg": "^8.16.3"
+  }
+}
