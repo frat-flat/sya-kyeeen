@@ -201,6 +201,7 @@ body:not(.v-ledger) .lv,body.v-ledger .sv{display:none!important}
 .simple .calc-only{display:none!important}
 .simple-only{display:none!important}
 .simple .simple-only{display:grid!important}
+.simple .transfer:only-child .del{display:none}
 .tag{display:inline-block;font-size:.72rem;padding:1px 8px;border-radius:99px;white-space:nowrap}
 .tag.ok{background:var(--soft);color:var(--repay);border:1px solid var(--repay)}
 .tag.todo{background:var(--warn-bg);color:var(--warn-ink)}
@@ -299,7 +300,7 @@ details summary{cursor:pointer;font-family:var(--font-display);font-weight:700;f
     <div class="calc">
       <form class="form" id="entryForm" autocomplete="off">
         <div class="row">
-          <div class="field"><label for="fMonth">対象月</label><input type="month" id="fMonth" required></div>
+          <div class="field calc-only"><label for="fMonth">対象月</label><input type="month" id="fMonth"></div>
           <div class="field calc-only"><label for="fFixed">固定支払額</label><div class="yen"><input id="fFixed" inputmode="numeric" placeholder="設定値"></div><span class="hint" id="fixedHint">空欄なら設定値</span></div>
         </div>
         <div class="field calc-only"><label for="fReward">その月の実際の報酬額（インセンティブ等）</label><div class="yen"><input id="fReward" inputmode="numeric" placeholder="0"></div><span class="hint" id="rewardHint">下で内訳を入れると、その合計が自動で入ります</span></div>
@@ -327,13 +328,13 @@ details summary{cursor:pointer;font-family:var(--font-display);font-weight:700;f
         <fieldset>
           <legend id="trLegend">振込の記録（支払日・振込元・振込先）</legend>
           <div class="transfers" id="transfersBox"></div>
-          <div class="btns"><button type="button" class="link" id="addTransfer">＋ 振込を追加</button><button type="button" class="link calc-only" id="addMonthEnd">計算どおりの月末振込を追加</button></div>
+          <div class="btns"><button type="button" class="link calc-only" id="addTransfer">＋ 振込を追加</button><button type="button" class="link calc-only" id="addMonthEnd">計算どおりの月末振込を追加</button></div>
           <span class="hint" id="acctHint">振込元・振込先の口座は、まだ登録されていません。</span>
           <div class="btns"><button type="button" class="link" id="goAccts">口座を登録・編集する</button><button type="button" class="link" id="goDefs">内訳項目を設定する</button></div>
         </fieldset>
         <div class="row">
           <div class="field calc-only"><label for="fManual">本人からの追加返済</label><div class="yen"><input id="fManual" inputmode="numeric" placeholder="0"></div><span class="hint">現金などで別途返してもらった額</span></div>
-          <div class="field"><label for="fMemo">メモ</label><input id="fMemo" maxlength="120" placeholder="例：賞与月"></div>
+          <div class="field calc-only"><label for="fMemo">メモ</label><input id="fMemo" maxlength="120" placeholder="例：賞与月"></div>
         </div>
         <div class="btns">
           <button type="submit" class="primary" id="saveBtn">この月を台帳に保存</button>
@@ -389,7 +390,7 @@ details summary{cursor:pointer;font-family:var(--font-display);font-weight:700;f
 
   <section class="panel pv lv">
     <div class="sectionhead">
-      <h2>月次台帳</h2>
+      <h2 id="ledgerTitle">月次台帳</h2>
       <div class="btns"><button type="button" id="csvBtn">CSVで保存</button><button type="button" id="copyBtn">表をコピー</button></div>
     </div>
     <div class="tablewrap"><table class="ledger" id="ledger"></table></div>
@@ -719,7 +720,10 @@ function projDefs(){
 /* ---------- 表示ヘルパ ---------- */
 function yen(n){ return Math.round(n).toLocaleString("ja-JP") + "円"; }
 function man(n){ const v = n/10000; return (Number.isInteger(v) ? v : v.toFixed(1)) + "万"; }
-function monthLabel(m){ if(!m) return ""; const [y,mo]=m.split("-"); return `${y}年${Number(mo)}月`; }
+function monthLabel(m){ if(!m) return ""; if (isTxKey(m)) return fmtDate(m.slice(0,10)); const [y,mo]=m.split("-"); return `${y}年${Number(mo)}月`; }
+/* 取引ごとの記録は「支払日_識別子」をキーにする（例 2026-10-03_k3x9a）。月ごとの記録は「2026-10」 */
+function isTxKey(k){ return /^\d{4}-\d{2}-\d{2}_/.test(k || ""); }
+function newTxSuffix(){ return Date.now().toString(36).slice(-5) + Math.random().toString(36).slice(2,5); }
 function ruleText(rt, rv){ return rt === "pct" ? `報酬の${rv}%` : rt === "amt" ? `${yen(rv)}（固定額）` : "充当なし"; }
 const $ = id => document.getElementById(id);
 function esc(s){ return String(s ?? "").replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
@@ -817,7 +821,7 @@ function projSummary(p){
   const rows = buildLedger(ms, s);
   const sum = k => rows.reduce((a,x)=>a+x.r[k],0);
   return { p, s, count: rows.length, last: rows.length ? rows[rows.length-1].e.month : "", balance: rows.length ? rows[rows.length-1].r.end : toNum(s.startBalance),
-    repay: sum("repayTotal"), lastRepay: rows.length ? rows[rows.length-1].r.repayTotal : 0, hasNow: ms.some(m=>m.month===ymNow()), done: p.status === "done" };
+    repay: sum("repayTotal"), lastRepay: rows.length ? rows[rows.length-1].r.repayTotal : 0, hasNow: ms.some(m=>String(m.month).startsWith(ymNow())), done: p.status === "done" };
 }
 function renderDash(){
   const all = meta.projects.map(projSummary).sort((a,b)=>(a.done-b.done) || (b.p.createdAt||0)-(a.p.createdAt||0));
@@ -825,13 +829,13 @@ function renderDash(){
   const shown = $("showDone").checked ? all : active;
   $("projEmpty").hidden = all.length > 0;
   $("projWrap").hidden = all.length === 0;
-  $("projTable").innerHTML = `<thead><tr><th>誰の・何の</th><th>状態</th><th>今月</th><th>直近月</th><th>その月の返済額</th><th>累計返済額</th><th>記録した月数</th><th>残高</th></tr></thead><tbody>` +
+  $("projTable").innerHTML = `<thead><tr><th>誰の・何の</th><th>状態</th><th>今月</th><th>直近の記録</th><th>直近の返済額</th><th>累計返済額</th><th>記録数</th><th>残高</th></tr></thead><tbody>` +
     (shown.length ? shown.map(x=>`<tr data-pid="${esc(x.p.id)}" tabindex="0" class="${x.done?"done":""}">
       <td class="who"><b>${esc(x.p.name || "（対象者未設定）")}</b><span>${esc(x.p.title || "内容未設定")}${x.p.memo ? "・" + esc(x.p.memo) : ""}</span></td>
       <td>${x.done ? '<span class="tag off">完了</span>' : '<span class="tag ok">進行中</span>'}</td>
       <td>${x.done ? "—" : x.hasNow ? '<span class="tag ok">入力済み</span>' : '<span class="tag todo">未入力</span>'}</td>
       <td>${x.last ? monthLabel(x.last) : "—"}</td><td class="down">${x.last ? yen(x.lastRepay) : "—"}</td>
-      <td class="bal down">${yen(x.repay)}</td><td>${x.count}か月</td><td class="up">${balText(x.s, x.balance)}</td></tr>`).join("")
+      <td class="bal down">${yen(x.repay)}</td><td>${x.count}${isTxKey(x.last) || projSettings(x.p).inputMode === "simple" ? "件" : "か月"}</td><td class="up">${balText(x.s, x.balance)}</td></tr>`).join("")
       : `<tr><td colspan="8" class="empty">進行中のプロジェクトはありません。「完了も表示」で完了したものを確認できます。</td></tr>`) + "</tbody>";
   renderNav(all);
 }
@@ -907,7 +911,7 @@ function refreshView(first){
 /* ---------- 入力フォーム ---------- */
 function readForm(){
   return {
-    month: $("fMonth").value,
+    month: isSimple() ? txKeyFromForm() : $("fMonth").value,
     fixed: hasVal($("fFixed").value) ? toNum($("fFixed").value) : null,
     reward: toNum($("fReward").value),
     rewardItems: readItems(),
@@ -920,6 +924,13 @@ function readForm(){
     memo: $("fMemo").value.trim()
   };
 }
+let txSuffix = newTxSuffix();
+function txKeyFromForm(){
+  const tr = $("transfersBox").querySelector('input[type="date"]'), d = tr ? tr.value : "";
+  if (!d) return "";
+  const suf = editingId && isTxKey(editingId) ? editingId.slice(11) : txSuffix;
+  return `${d}_${suf}`;
+}
 function fmtInput(n){ return n ? Number(n).toLocaleString("ja-JP") : ""; }
 function fillForm(e){
   $("fMonth").value = e.month || "";
@@ -931,7 +942,7 @@ function fillForm(e){
   $("fPrepay").value = fmtInput(e.prepay);
   $("fPrepayReward").value = fmtInput(e.prepayReward);
   $("fManual").value = fmtInput(e.manualRepay);
-  setTransfers(e.transfers || []);
+  setTransfers(isSimple() && !(e.transfers || []).length ? [{ date: todayStr(), kind:"repay" }] : e.transfers || []);
   $("fMemo").value = e.memo || "";
   syncRuleField();
 }
@@ -1151,7 +1162,7 @@ function nextMonth(){
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`;
 }
 function startNew(){
-  editingId = null;
+  editingId = null; txSuffix = newTxSuffix();
   fillForm({ month: nextMonth(), ruleType:"default", transfers: isSimple() ? [{ date: todayStr(), kind:"repay" }] : [] });
   if (isSimple()){ updateEditState(); renderCalc(); return; }
   if (!months.length && !$("fReward").value) $("fReward").value = "200,000"; // 例：報酬20万円
@@ -1160,6 +1171,12 @@ function startNew(){
   updateEditState(); renderCalc();
 }
 function updateEditState(){
+  if (isSimple()){
+    $("calcTitle").textContent = "取引の入力";
+    $("editState").textContent = editingId ? `${monthLabel(editingId)}の取引を編集中` : "新しい取引を入力中";
+    $("delBtn").hidden = !editingId; $("delConfirm").hidden = true;
+    return;
+  }
   const m = $("fMonth").value;
   const exists = months.some(x=>x.month===m);
   $("editState").textContent = editingId ? `${monthLabel(editingId)}を編集中` : exists ? `${monthLabel(m)}は記録済み（保存すると上書き）` : "新しい月を入力中";
@@ -1177,25 +1194,26 @@ function syncRuleField(){
 }
 
 /* ---------- 今月の計算 表示 ---------- */
+function priorRecords(key){ return months.filter(m=>m.month < key && m.month !== editingId); }
 function prevBalanceFor(month){
-  const rows = buildLedger(months.filter(m=>m.month < month), settings);
+  const rows = buildLedger(priorRecords(month), settings);
   return rows.length ? rows[rows.length-1].r.end : toNum(settings.startBalance);
 }
 function renderCalc(){
   const e = readForm();
   const r = calcMonth(e, settings, prevBalanceFor(e.month || "9999-99"));
   if (r.simple){
-    const before = buildLedger(months.filter(m=>m.month < (e.month || "9999-99")), settings).reduce((a,x)=>a+x.r.repayTotal, 0);
+    const before = buildLedger(priorRecords(e.month || "9999-99"), settings).reduce((a,x)=>a+x.r.repayTotal, 0);
     const n = (e.transfers || []).filter(t=>t.amount > 0).length;
-    $("sPaidLabel").textContent = e.month ? `${monthLabel(e.month)}の返済額` : "この月の返済額";
+    $("sPaidLabel").textContent = "この取引の返済額";
     $("sPaid").textContent = yen(r.repayTotal);
     const known = balKnown(settings);
     $("sEnd").textContent = balText(settings, r.end);
     $("sEnd").previousElementSibling.textContent = known ? "返済後の残高" : "残高（借入額が未設定）";
     $("sCum").textContent = `累計返済額 ${yen(before + r.repayTotal)}`;
     $("rSteps").innerHTML = [
-      known ? `前月までの残高は <b>${yen(r.prev)}</b>、累計返済額は ${yen(before)} です。` : `前月までの累計返済額は ${yen(before)} です。`,
-      n ? `この月は ${n} 回、合計 <b class="down">${yen(r.repayTotal)}</b> を返済しました。` : `この月の返済はまだ記録されていません。`,
+      known ? `この取引より前の残高は <b>${yen(r.prev)}</b>、累計返済額は ${yen(before)} です。` : `この取引より前の累計返済額は ${yen(before)} です。`,
+      n ? `この取引で <b class="down">${yen(r.repayTotal)}</b> を返済します。` : `返済額がまだ入力されていません。`,
       known ? `返済後の残高は <b>${yen(r.end)}</b>、累計返済額は <b class="down">${yen(before + r.repayTotal)}</b> になります。` : `累計返済額は <b class="down">${yen(before + r.repayTotal)}</b> になります。`
     ].map(x=>`<li>${x}</li>`).join("");
     $("rNotes").innerHTML = (known ? r.notes : []).map(n=>`<div class="note">${esc(n)}</div>`).join("");
@@ -1253,12 +1271,12 @@ function renderLedger(){
   $("kLoan").textContent = isSimple() ? (balKnown(settings) ? yen(toNum(settings.startBalance)) : "未設定") : yen(sum("loan"));
   $("kRepay").textContent = yen(sum("repayTotal"));
   const lastRow = rows[rows.length-1];
-  $("kLastLabel").textContent = lastRow ? `${monthLabel(lastRow.e.month)}の返済額` : "直近月の返済額";
+  $("kLastLabel").textContent = isSimple() ? (lastRow ? `直近の取引（${monthLabel(lastRow.e.month)}）` : "直近の取引の返済額") : lastRow ? `${monthLabel(lastRow.e.month)}の返済額` : "直近月の返済額";
   $("kLast").textContent = yen(lastRow ? lastRow.r.repayTotal : 0);
 
   const tb = $("ledger");
   if (!rows.length){
-    tb.innerHTML = `<tbody><tr><td class="empty" colspan="13">まだ記録がありません。${isSimple() ? "上で月と返済額を入れて" : "上の「今月の計算」で月と報酬額を入れて"}「この月を台帳に保存」を押すと、ここに1行ずつ溜まっていきます。</td></tr></tbody>`;
+    tb.innerHTML = `<tbody><tr><td class="empty" colspan="13">まだ記録がありません。${isSimple() ? "上で支払日と返済額を入れて「取引を台帳に保存」" : "上の「今月の計算」で月と報酬額を入れて「この月を台帳に保存」"}を押すと、ここに1行ずつ溜まっていきます。</td></tr></tbody>`;
     return;
   }
   if (isSimple()){
@@ -1269,9 +1287,11 @@ function renderLedger(){
       const trs = (e.transfers || []).filter(t=>t.amount > 0);
       const dates = trs.map(t=>fmtDate(t.date)).join("、") || "—";
       const flow = [...new Set(trs.map(t=>`${transferWho(t,"from")} → ${transferWho(t,"to")}`))].join("、") || "—";
-      return `<tr data-id="${esc(e.month)}" class="${e.month===editingId?"editing":""}" tabindex="0"><td>${monthLabel(e.month)}</td><td class="down">${yen(r.repayTotal)}</td><td class="bal down">${yen(c)}</td>${items.map(x=>`<td>${yen(itemSum(e, x.id))}</td>`).join("")}<td>${trs.length}回</td><td class="memo">${esc(dates)}</td><td class="memo" title="${esc(flow)}">${esc(flow)}</td><td class="bal">${balText(settings, r.end)}</td><td class="memo" title="${esc(e.memo)}">${esc(e.memo)}</td></tr>`; }).join("");
-    tb.innerHTML = `<thead><tr><th>月</th><th>その月の返済額</th><th>累計返済額</th>${items.map(x=>`<th>${esc(x.name)}</th>`).join("")}<th>回数</th><th class="memo">支払日</th><th class="memo">振込元 → 振込先</th><th>残高</th><th class="memo">メモ</th></tr></thead><tbody>${lines}</tbody>` +
-      `<tfoot><tr><td>合計</td><td>${yen(sum("repayTotal"))}</td><td>${yen(sum("repayTotal"))}</td>${items.map(x=>`<td>${yen(rows.reduce((a,{e})=>a+itemSum(e, x.id),0))}</td>`).join("")}<td></td><td></td><td></td><td>${balText(settings, bal)}</td><td></td></tr></tfoot>`;
+      const memo = [e.memo, ...trs.map(t=>t.memo)].filter(Boolean).join("・");
+      const when = isTxKey(e.month) ? monthLabel(e.month) : `${dates}（${monthLabel(e.month)}分）`;
+      return `<tr data-id="${esc(e.month)}" class="${e.month===editingId?"editing":""}" tabindex="0"><td class="memo">${esc(when)}</td><td class="down">${yen(r.repayTotal)}</td><td class="bal down">${yen(c)}</td>${items.map(x=>`<td>${yen(itemSum(e, x.id))}</td>`).join("")}<td class="memo" title="${esc(flow)}">${esc(flow)}</td><td class="bal">${balText(settings, r.end)}</td><td class="memo" title="${esc(memo)}">${esc(memo)}</td></tr>`; }).join("");
+    tb.innerHTML = `<thead><tr><th class="memo">支払日</th><th>返済額</th><th>累計返済額</th>${items.map(x=>`<th>${esc(x.name)}</th>`).join("")}<th class="memo">振込元 → 振込先</th><th>残高</th><th class="memo">メモ</th></tr></thead><tbody>${lines}</tbody>` +
+      `<tfoot><tr><td>合計（${rows.length}件）</td><td>${yen(sum("repayTotal"))}</td><td>${yen(sum("repayTotal"))}</td>${items.map(x=>`<td>${yen(rows.reduce((a,{e})=>a+itemSum(e, x.id),0))}</td>`).join("")}<td></td><td>${balText(settings, bal)}</td><td></td></tr></tfoot>`;
     return;
   }
   const head = `<thead><tr><th>月</th><th>その月の返済額</th><th>累計返済額</th><th>固定額</th><th>報酬</th><th>返済充当</th><th>本人報酬</th><th>貸付（補填）</th><th>先払い</th><th>月末振込</th><th>追加返済</th><th>残高</th><th class="memo">メモ</th></tr></thead>`;
@@ -1291,8 +1311,8 @@ function openRow(id){
 function renderChart(){
   const rows = buildLedger(months, settings);
   const box = $("chart");
-  if (!rows.length){ box.innerHTML = `<div class="empty">月を保存すると、ここに残高の推移が表示されます。</div>`; $("chartNote").textContent=""; return; }
-  const pts = [{label:"開始", v:toNum(settings.startBalance)}].concat(rows.map(x=>({label:monthLabel(x.e.month).replace(/^\d+年/,""), full:monthLabel(x.e.month), v:x.r.end, loan:x.r.loan, repay:x.r.repayTotal})));
+  if (!rows.length){ box.innerHTML = `<div class="empty">${isSimple() ? "取引" : "月"}を保存すると、ここに残高の推移が表示されます。</div>`; $("chartNote").textContent=""; return; }
+  const pts = [{label:"開始", v:toNum(settings.startBalance)}].concat(rows.map(x=>({label:isTxKey(x.e.month) ? monthLabel(x.e.month).replace(/^\d+\//,"") : monthLabel(x.e.month).replace(/^\d+年/,""), full:monthLabel(x.e.month), v:x.r.end, loan:x.r.loan, repay:x.r.repayTotal})));
   const W = Math.max(560, pts.length*64), H = 240, L = 64, Rm = 16, T = 16, B = 32;
   const max = Math.max(1, ...pts.map(p=>p.v)); const nice = niceMax(max);
   const x = i => L + (pts.length===1 ? 0 : i*(W-L-Rm)/(pts.length-1));
@@ -1308,7 +1328,7 @@ function renderChart(){
     ${g}<path d="${area}" fill="var(--loan)" opacity=".12"/><path d="${line}" fill="none" stroke="var(--loan)" stroke-width="2.5" stroke-linejoin="round"/>${dots}${labels}
     <text x="${Math.min(x(pts.length-1), W-Rm-4)}" y="${Math.max(12,y(last.v)-10)}" text-anchor="end" style="fill:var(--ink);font-weight:700">${yen(last.v)}</text></svg>`;
   const first = pts[0].v;
-  $("chartNote").textContent = `${rows.length}か月で ${last.v>=first?"+":"−"}${yen(Math.abs(last.v-first))}`;
+  $("chartNote").textContent = `${rows.length}${isSimple() ? "件の取引" : "か月"}で ${last.v>=first?"+":"−"}${yen(Math.abs(last.v-first))}`;
 }
 function niceMax(v){ const p = Math.pow(10, Math.floor(Math.log10(v))); for (const m of [1,1.5,2,2.5,3,4,5,6,8,10]) if (m*p >= v) return m*p; return 10*p; }
 
@@ -1352,8 +1372,13 @@ function applyMode(){
   $("matrixPanel").hidden = sm; $("howPanel").hidden = sm;
   $("chartTitle").textContent = sm ? "残高の推移" : "貸付残高の推移";
   $("chart").closest("section").hidden = !balKnown(settings);
-  $("trLegend").textContent = sm ? "返済の記録（支払日・返済額・振込元・振込先）" : "振込の記録（支払日・振込元・振込先）";
   $("addTransfer").textContent = sm ? "＋ 返済を追加" : "＋ 振込を追加";
+  $("trLegend").textContent = sm ? "取引（支払日・返済額・振込元・振込先）" : "振込の記録（支払日・振込元・振込先）";
+  $("ledgerTitle").textContent = sm ? "取引台帳" : "月次台帳";
+  $("saveBtn").textContent = sm ? "取引を台帳に保存" : "この月を台帳に保存";
+  $("newBtn").textContent = sm ? "新しい取引を入力" : "新しい月を入力";
+  $("delBtn").textContent = sm ? "この取引を削除" : "この月を削除";
+  $("delConfirm").firstChild.textContent = sm ? "この取引の記録を削除します。" : "この月の記録を削除します。";
   $("kBalance").previousElementSibling.textContent = sm ? "現在の残高" : "現在の貸付残高";
   $("kLoan").previousElementSibling.textContent = sm ? "借入額（返済前の残高）" : "累計 貸付（補填）";
 }
@@ -1379,12 +1404,13 @@ function allTransfers(){
 function fmtDate(d){ if (!d) return "日付なし"; const [y,m,dd] = d.split("-"); return `${y}/${Number(m)}/${Number(dd)}`; }
 function renderHistory(){
   const list = allTransfers(), tb = $("history");
-  if (!list.length){ tb.innerHTML = `<tbody><tr><td class="empty">月の計算欄で「振込を追加」から支払日・金額・振込元・振込先を入れて保存すると、ここに新しい順で並びます。</td></tr></tbody>`; return; }
+  if (!list.length){ tb.innerHTML = `<tbody><tr><td class="empty">${isSimple() ? "取引の入力欄で" : "月の計算欄で「振込を追加」から"}支払日・金額・振込元・振込先を入れて保存すると、ここに新しい順で並びます。</td></tr></tbody>`; return; }
   const items = projDefs().items;
   const partsText = t=>items.filter(x=>t.parts && t.parts[x.id]).map(x=>`${x.name} ${yen(t.parts[x.id])}`).join(" / ");
-  tb.innerHTML = `<thead><tr><th>支払日</th><th class="memo">対象月</th><th class="memo">種類</th><th>金額</th>${items.length ? '<th class="memo">内訳</th>' : ""}<th class="memo">振込元</th><th class="memo">振込先</th><th class="memo">メモ</th></tr></thead><tbody>` +
-    list.map(t=>`<tr data-id="${esc(t.month)}" tabindex="0"><td>${fmtDate(t.date)}</td><td class="memo">${monthLabel(t.month)}</td><td class="memo">${KINDS[t.kind] || "その他"}</td><td>${yen(t.amount)}</td>${items.length ? `<td class="memo" title="${esc(partsText(t))}">${esc(partsText(t))}</td>` : ""}<td class="memo flow">${esc(transferWho(t,"from"))}</td><td class="memo flow">→ ${esc(transferWho(t,"to"))}</td><td class="memo" title="${esc(t.memo)}">${esc(t.memo)}</td></tr>`).join("") +
-    `</tbody><tfoot><tr><td>合計</td><td></td><td></td><td>${yen(list.reduce((a,t)=>a+t.amount,0))}</td>${items.length ? "<td></td>" : ""}<td></td><td></td><td></td></tr></tfoot>`;
+  const sm = isSimple();
+  tb.innerHTML = `<thead><tr><th>支払日</th>${sm ? "" : '<th class="memo">対象月</th>'}<th class="memo">種類</th><th>金額</th>${items.length ? '<th class="memo">内訳</th>' : ""}<th class="memo">振込元</th><th class="memo">振込先</th><th class="memo">メモ</th></tr></thead><tbody>` +
+    list.map(t=>`<tr data-id="${esc(t.month)}" tabindex="0"><td>${fmtDate(t.date)}</td>${sm ? "" : `<td class="memo">${monthLabel(t.month)}</td>`}<td class="memo">${KINDS[t.kind] || "その他"}</td><td>${yen(t.amount)}</td>${items.length ? `<td class="memo" title="${esc(partsText(t))}">${esc(partsText(t))}</td>` : ""}<td class="memo flow">${esc(transferWho(t,"from"))}</td><td class="memo flow">→ ${esc(transferWho(t,"to"))}</td><td class="memo" title="${esc(t.memo)}">${esc(t.memo)}</td></tr>`).join("") +
+    `</tbody><tfoot><tr><td>合計</td>${sm ? "" : "<td></td>"}<td></td><td>${yen(list.reduce((a,t)=>a+t.amount,0))}</td>${items.length ? "<td></td>" : ""}<td></td><td></td><td></td></tr></tfoot>`;
 }
 
 /* ---------- 内訳マトリクス（月 × 内訳 × 内訳の内訳） ---------- */
@@ -1438,13 +1464,13 @@ document.querySelectorAll(".yen input").forEach(inp=>inp.addEventListener("blur"
 $("entryForm").addEventListener("submit", async ev=>{
   ev.preventDefault();
   const m = readForm();
-  if (!m.month){ flash("toast","対象月を選んでください。"); return; }
+  if (!m.month){ flash("toast", isSimple() ? "支払日を入れてください。" : "対象月を選んでください。"); return; }
   if (m.ruleType === "default" || m.ruleType === "none") m.ruleValue = null;
   $("saveBtn").disabled = true;
   try {
     if (editingId && editingId !== m.month) await removeMonth(editingId);
     await persistMonth(m);
-    editingId = m.month; flash("toast", `${monthLabel(m.month)}を保存しました。`);
+    editingId = m.month; flash("toast", isSimple() ? `${monthLabel(m.month)}の取引を保存しました。` : `${monthLabel(m.month)}を保存しました。`);
   } catch(err){ flash("toast", err && err.code==="quota_exceeded" ? "保存容量の上限です。古い月を削除してから保存してください。" : "保存できませんでした。もう一度お試しください。"); }
   finally { $("saveBtn").disabled = false; updateEditState(); renderLedger(); }
 });
@@ -1453,7 +1479,7 @@ $("delBtn").addEventListener("click", ()=>{ $("delConfirm").hidden = false; });
 $("delNo").addEventListener("click", ()=>{ $("delConfirm").hidden = true; });
 $("delYes").addEventListener("click", async ()=>{
   const id = editingId; if (!id) return;
-  try { await removeMonth(id); flash("toast", `${monthLabel(id)}を削除しました。`); startNew(); renderLedger(); }
+  try { await removeMonth(id); flash("toast", isTxKey(id) ? `${monthLabel(id)}の取引を削除しました。` : `${monthLabel(id)}を削除しました。`); startNew(); renderLedger(); }
   catch(_){ flash("toast","削除できませんでした。"); }
 });
 $("ledger").addEventListener("click", e=>{ const tr = e.target.closest("tr[data-id]"); if (tr) openRow(tr.dataset.id); });
@@ -1631,7 +1657,7 @@ if (!inClaude && SUPABASE_URL && SUPABASE_ANON_KEY && window.supabase){
       const uid = store.uid, sb = store.sb;
       await sbCheck(await sb.from("ledger_settings").upsert({ user_id: uid, data: localSnapshot.settings }, { onConflict:"user_id" }));
       if (localSnapshot.months.length) await sbCheck(await sb.from("ledger_months").upsert(localSnapshot.months.map(m=>({ user_id: uid, project_id: pidOf(m), month: m.month, data: { ...m, project: pidOf(m) } })), { onConflict:"user_id,project_id,month" }));
-      await loadFromSupabase(); flash("toast", `${localSnapshot.months.length}か月分を取り込みました。`);
+      await loadFromSupabase(); flash("toast", `${localSnapshot.months.length}件を取り込みました。`);
     } catch(_){ $("importBtn").disabled = false; flash("toast", "取り込めませんでした。もう一度お試しください。"); }
   });
 }

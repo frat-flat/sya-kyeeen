@@ -9,7 +9,7 @@ create table if not exists public.ledger_settings (
 create table if not exists public.ledger_months (
   user_id uuid not null default auth.uid() references auth.users(id) on delete cascade,
   project_id text not null default 'main' check (project_id ~ '^[A-Za-z0-9_-]{1,40}$'),
-  month text not null check (month ~ '^\d{4}-\d{2}$'),
+  month text not null check (month ~ '^\d{4}-\d{2}(-\d{2}_[a-z0-9]{1,16})?$'), -- 月（2026-10）または取引（2026-10-03_k3x9a）
   data jsonb not null,
   updated_at timestamptz not null default now(),
   primary key (user_id, project_id, month)
