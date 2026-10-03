@@ -46,6 +46,8 @@ h2{font-size:1.15rem;font-weight:700}
 .kpi span{display:block;font-size:.78rem;color:var(--muted);letter-spacing:.04em}
 .kpi b{display:block;font-size:1.35rem;font-family:var(--font-body);font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .kpi.main b{color:var(--loan)}
+/* 返済額を直接入力する方式では 現在の借入額・現在の返済額・合計借入額・合計返済額 の順 */
+.kpis.simple .kpi.main{order:-2} .kpis.simple .kpi.now{order:-1}
 .calc{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,6fr);gap:20px;align-items:start}
 .form{display:grid;gap:14px}
 .row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
@@ -336,7 +338,7 @@ details summary{cursor:pointer;font-family:var(--font-display);font-weight:700;f
     <div class="kpi"><span id="kRepayLabel">累計 返済額</span><b id="kRepay" class="down">0円</b></div>
     <div class="kpi"><span id="kLastLabel">直近月の返済額</span><b id="kLast">0円</b></div>
     <div class="kpi main"><span id="kBalanceLabel">現在の貸付残高</span><b id="kBalance">0円</b></div>
-    <div class="kpi"><span id="kLoanLabel">累計 貸付（補填）</span><b id="kLoan">0円</b></div>
+    <div class="kpi now"><span id="kLoanLabel">累計 貸付（補填）</span><b id="kLoan">0円</b></div>
   </section>
 
   <section class="panel pv lv" id="calcPanel">
@@ -1620,6 +1622,7 @@ function applyMode(){
   $("newBtn").textContent = sm ? "新しい取引を入力" : "新しい月を入力";
   $("delBtn").textContent = sm ? "この取引を削除" : "この月を削除";
   $("delConfirm").firstChild.textContent = sm ? "この取引の記録を削除します。" : "この月の記録を削除します。";
+  $("kBalance").closest(".kpis").classList.toggle("simple", sm);
   $("kRepayLabel").textContent = sm ? tr("合計借入額") : "累計 返済額";
   $("kRepay").classList.toggle("down", !sm);
   if (sm) $("kLastLabel").textContent = tr("合計返済額");
