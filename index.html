@@ -160,6 +160,17 @@ body.locked .side,body.locked .menu-btn{display:none!important}
   .menu-btn{display:inline-block}
 }
 @media (max-width:900px) and (prefers-reduced-motion:no-preference){ .side{transition:transform .2s ease,visibility .2s} }
+.defs{display:grid;gap:8px}
+.def{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.6fr) auto;gap:8px;align-items:center}
+.def.const{grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto}
+.def button{padding:6px 10px;color:var(--muted)}
+.defhead{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.6fr) auto;gap:8px;font-size:.75rem;color:var(--muted)}
+.defhead.const{grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto}
+.ferr{background:var(--warn-bg);color:var(--warn-ink);border-radius:6px;padding:8px 12px;font-size:.85rem}
+.parts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;border-top:1px dashed var(--line);padding-top:10px}
+.parts .field label .fx{font-size:.7rem;color:var(--accent);margin-left:4px}
+.ptitle{grid-column:1/-1;font-size:.78rem;font-weight:700;color:var(--muted)}
+@media (max-width:420px){ .def,.defhead{grid-template-columns:minmax(0,1fr) auto} .def>:nth-child(2),.defhead>:nth-child(2){grid-column:1/-1;grid-row:2} }
 .simple .calc-only{display:none!important}
 .simple-only{display:none!important}
 .simple .simple-only{display:grid!important}
@@ -379,6 +390,19 @@ details summary{cursor:pointer;font-family:var(--font-display);font-weight:700;f
           <div class="field calc-only"><label for="sSurplus">報酬が固定額を上回った月</label><select id="sSurplus"><option value="pay">上回った分も全額支払う</option><option value="repay">上回った分を追加返済に回す</option></select></div>
         </div>
         <fieldset>
+          <legend>支払いの内訳項目と計算式</legend>
+          <span class="hint">1回の支払いを項目ごとに分けて記録できます。計算式を入れた項目は、ほかの項目や支払額から自動で計算されます。</span>
+          <div class="defhead"><span>項目名</span><span>計算式（空欄なら手入力）</span><span></span></div>
+          <div class="defs" id="itemDefBox"></div>
+          <div><button type="button" class="link" id="addItemDef">＋ 項目を追加</button></div>
+          <div class="defhead const"><span>定数名</span><span>値</span><span></span></div>
+          <div class="defs" id="constBox"></div>
+          <div><button type="button" class="link" id="addConst">＋ 定数を追加（例：利率 5%）</button></div>
+          <div class="field"><label for="sAmountF">支払額の計算式</label><input id="sAmountF" maxlength="200" placeholder="空欄なら手入力（例：元金 + 利息）"></div>
+          <span class="hint">使えるもの：+ − × ÷ ( )、数字（5% も可）、項目名・定数名・「支払額」、四捨五入( )・切り捨て( )・切り上げ( )・最小( , )・最大( , )。<br>例：支払額を入れて分ける → 利息＝切り捨て(支払額 × 利率)、元金＝支払額 − 利息。項目を入れて合計する → 支払額＝元金 + 利息。</span>
+          <div class="ferr" id="defErr" hidden></div>
+        </fieldset>
+        <fieldset>
           <legend>口座の登録</legend>
           <div class="accts" id="acctsBox"></div>
           <div><button type="button" class="link" id="addAcct">＋ 口座を追加</button></div>
@@ -507,6 +531,116 @@ function buildLedger(months, s){
   });
 }
 
+/* ---------- 内訳項目の計算式 ----------
+   プロジェクトごとに「定数」「内訳項目（手入力 or 計算式）」「支払額の計算式」を持つ。
+   式は + - * / ( ) と数字（10% 可）、項目名・定数名・「支払額」、関数（四捨五入・切り捨て・切り上げ・最小・最大）を使える。 */
+const AMOUNT_NAME = "支払額";
+const FUNCS = { "四捨五入":"round", "切り捨て":"floor", "切り上げ":"ceil", "最小":"min", "最大":"max", round:"round", floor:"floor", ceil:"ceil", min:"min", max:"max" };
+function normExpr(src){
+  return String(src || "").replace(/[０-９．]/g, c=>String.fromCharCode(c.charCodeAt(0)-0xFEE0))
+    .replace(/[＋]/g,"+").replace(/[−－ー‐]/g, c=>c==="ー" ? c : "-").replace(/[×＊]/g,"*").replace(/[÷／]/g,"/")
+    .replace(/[（]/g,"(").replace(/[）]/g,")").replace(/[，、]/g,",").replace(/％/g,"%").replace(/[［]/g,"[").replace(/[］]/g,"]");
+}
+function tokenize(src, names){
+  const s = normExpr(src), out = [];
+  const known = names.slice().sort((a,b)=>b.length-a.length);
+  const fnames = Object.keys(FUNCS).sort((a,b)=>b.length-a.length);
+  let i = 0;
+  while (i < s.length){
+    const c = s[i];
+    if (/\s/.test(c)){ i++; continue; }
+    const num = s.slice(i).match(/^\d+(?:\.\d+)?%?/);
+    if (num){ const t = num[0]; out.push({ t:"num", v: t.endsWith("%") ? Number(t.slice(0,-1))/100 : Number(t) }); i += t.length; continue; }
+    if ("+-*/(),".includes(c)){ out.push({ t:c }); i++; continue; }
+    if (c === "["){ const j = s.indexOf("]", i); if (j < 0) throw new Error("「[」が閉じていません"); out.push({ t:"name", v:s.slice(i+1,j).trim() }); i = j+1; continue; }
+    const f = fnames.find(n=>s.startsWith(n, i) && /^\s*\(/.test(s.slice(i+n.length)));
+    if (f){ out.push({ t:"fn", v:FUNCS[f] }); i += f.length; continue; }
+    const n = known.find(n=>n && s.startsWith(n, i));
+    if (n){ out.push({ t:"name", v:n }); i += n.length; continue; }
+    let j = i; while (j < s.length && !/[\s+\-*/(),\[\]0-9]/.test(s[j])) j++;
+    throw new Error(`「${s.slice(i, Math.max(j, i+1))}」という項目・定数はありません`);
+  }
+  return out;
+}
+function parseExpr(src, names){
+  const tk = tokenize(src, names); let k = 0;
+  const peek = ()=>tk[k], take = t=>{ if (!tk[k] || tk[k].t !== t) throw new Error(t === ")" ? "かっこが閉じていません" : "式の形が正しくありません"); return tk[k++]; };
+  function expr(){ let n = term(); while (peek() && (peek().t==="+" || peek().t==="-")){ const op = tk[k++].t; n = { op, a:n, b:term() }; } return n; }
+  function term(){ let n = unary(); while (peek() && (peek().t==="*" || peek().t==="/")){ const op = tk[k++].t; n = { op, a:n, b:unary() }; } return n; }
+  function unary(){ if (peek() && peek().t==="-"){ k++; return { op:"neg", a:unary() }; } if (peek() && peek().t==="+"){ k++; return unary(); } return primary(); }
+  function primary(){
+    const t = peek(); if (!t) throw new Error("式が途中で終わっています");
+    if (t.t==="num"){ k++; return { num:t.v }; }
+    if (t.t==="name"){ k++; return { ref:t.v }; }
+    if (t.t==="fn"){ k++; take("("); const args = [expr()]; while (peek() && peek().t===","){ k++; args.push(expr()); } take(")"); return { fn:t.v, args }; }
+    if (t.t==="("){ k++; const n = expr(); take(")"); return n; }
+    throw new Error("式の形が正しくありません");
+  }
+  if (!tk.length) return null;
+  const node = expr(); if (k < tk.length) throw new Error("式の形が正しくありません");
+  return node;
+}
+function refsOf(node, set = new Set()){
+  if (!node) return set;
+  if (node.ref) set.add(node.ref);
+  ["a","b"].forEach(x=>node[x] && refsOf(node[x], set)); (node.args || []).forEach(x=>refsOf(x, set));
+  return set;
+}
+function evalNode(node, get){
+  if (node.num !== undefined) return node.num;
+  if (node.ref !== undefined) return get(node.ref);
+  if (node.fn){ const v = node.args.map(a=>evalNode(a, get));
+    if (node.fn==="min") return Math.min(...v); if (node.fn==="max") return Math.max(...v);
+    return Math[node.fn](v[0]); }
+  const a = evalNode(node.a, get);
+  if (node.op==="neg") return -a;
+  const b = evalNode(node.b, get);
+  return node.op==="+" ? a+b : node.op==="-" ? a-b : node.op==="*" ? a*b : (b === 0 ? 0 : a/b);
+}
+/* 設定を検査して、計算に使える形（式の構文木つき）にする。errors が空なら保存できる */
+function compileDefs(d){
+  const items = (d.items || []).filter(x=>x.name), consts = (d.consts || []).filter(x=>x.name);
+  const names = [AMOUNT_NAME, ...items.map(x=>x.name), ...consts.map(x=>x.name)];
+  const errors = [];
+  const seen = new Set();
+  names.forEach(n=>{ if (seen.has(n)) errors.push(`「${n}」が重複しています。名前を変えてください。`); seen.add(n);
+    if (FUNCS[n]) errors.push(`「${n}」は関数名なので項目名に使えません。`); if (/^[\d.]/.test(n) || /[+\-*/(),\[\]]/.test(n)) errors.push(`「${n}」には数字始まりや記号を使えません。`); });
+  const parse = (src, label)=>{ if (!String(src||"").trim()) return null; try { return parseExpr(src, names); } catch(e){ errors.push(`${label}：${e.message}`); return null; } };
+  const c = { items: items.map(x=>({ ...x, node: parse(x.formula, `「${x.name}」の計算式`) })), consts, amountNode: parse(d.amountFormula, "支払額の計算式"), errors };
+  // 循環参照（Aの式がBを使い、Bの式がAを使う など）を見つける
+  const deps = {}; c.items.forEach(x=>{ if (x.node) deps[x.name] = refsOf(x.node); }); if (c.amountNode) deps[AMOUNT_NAME] = refsOf(c.amountNode);
+  const state = {};
+  const visit = n=>{ if (state[n]===2 || !deps[n]) return false; if (state[n]===1) return true; state[n]=1; for (const m of deps[n]) if (visit(m)) return true; state[n]=2; return false; };
+  Object.keys(deps).forEach(n=>{ if (visit(n) && !errors.some(e=>e.includes("循環"))) errors.push(`計算式がお互いを参照しています（循環）。「${n}」の式を見直してください。`); });
+  return c;
+}
+/* 1回の支払いを計算する。inputs は手入力された項目の値（id→数値）、amount は手入力の支払額 */
+function computePayment(c, inputs, amount){
+  const val = {}, busy = new Set();
+  const byName = Object.fromEntries(c.items.map(x=>[x.name, x]));
+  const constOf = Object.fromEntries(c.consts.map(x=>[x.name, toNum(x.value)]));
+  const get = name=>{
+    if (name in val) return val[name];
+    if (busy.has(name)) return 0;
+    busy.add(name);
+    let v = 0;
+    if (name === AMOUNT_NAME) v = c.amountNode ? Math.round(evalNode(c.amountNode, get)) : toNum(amount);
+    else if (name in constOf) v = constOf[name];
+    else if (byName[name]){ const it = byName[name]; v = it.node ? Math.round(evalNode(it.node, get)) : toNum(inputs[it.id]); }
+    if (!Number.isFinite(v)) v = 0;
+    busy.delete(name); val[name] = v; return v;
+  };
+  const parts = {}; c.items.forEach(x=>{ parts[x.id] = get(x.name); });
+  return { amount: get(AMOUNT_NAME), parts };
+}
+let defsCache = null, defsCacheKey = "";
+function projDefs(){
+  const d = { items: settings.items || [], consts: settings.consts || [], amountFormula: settings.amountFormula || "" };
+  const key = JSON.stringify(d);
+  if (key !== defsCacheKey){ defsCache = compileDefs(d); defsCacheKey = key; }
+  return defsCache;
+}
+
 /* ---------- 表示ヘルパ ---------- */
 function yen(n){ return Math.round(n).toLocaleString("ja-JP") + "円"; }
 function man(n){ const v = n/10000; return (Number.isInteger(v) ? v : v.toFixed(1)) + "万"; }
@@ -518,7 +652,7 @@ function esc(s){ return String(s ?? "").replace(/[&<>"']/g, c=>({"&":"&amp;","<"
 /* ---------- 状態と保存先 ----------
    meta: 全体の設定（口座とプロジェクト一覧）。allMonths: 全プロジェクトの月次記録（各行に project）。
    settings と months は、開いているプロジェクトの分だけを切り出したもの（画面の描画はこちらを使う）。 */
-const PROJECT_KEYS = ["id","name","title","memo","status","inputMode","defaultFixed","ruleType","ruleValue","startBalance","surplusMode","defaultFrom","defaultTo","createdAt"];
+const PROJECT_KEYS = ["id","name","title","memo","status","inputMode","items","consts","amountFormula","defaultFixed","ruleType","ruleValue","startBalance","surplusMode","defaultFrom","defaultTo","createdAt"];
 const LEGACY_ID = "main";   // プロジェクト機能より前の記録はこのプロジェクトに入る
 let meta = { accounts:[], projects:[] };
 let allMonths = [];
@@ -591,6 +725,7 @@ async function persistSettings(s){
   await persistMeta({ accounts: s.accounts, projects: meta.projects.map(p=>p.id===cur ? { ...p, ...pick(s, PROJECT_KEYS), id: p.id } : p) });
   renderSettings();
   if (modeChanged){ applyMode(); startNew(); renderLedger(); }
+  else { const f = readForm(); fillForm(f); renderCalc(); }   // 内訳項目が変わったら入力欄を作り直す
 }
 async function removeProject(id){
   const list = allMonths.filter(m=>pidOf(m)===id);
@@ -751,6 +886,7 @@ function addTransferRow(t){
       <div class="field"><label for="trDate${i}">支払日</label><input type="date" id="trDate${i}"></div>
       <div class="field"><label for="trAmt${i}">金額</label><div class="yen"><input id="trAmt${i}" inputmode="numeric" placeholder="0"></div></div>
     </div>
+    <div class="parts" hidden></div>
     <div class="row">
       <div class="field"><label for="trFrom${i}">振込元</label><select id="trFrom${i}"></select></div>
       <div class="field"><label for="trTo${i}">振込先</label><select id="trTo${i}"></select></div>
@@ -765,20 +901,50 @@ function addTransferRow(t){
   fillAccountSelect(row.querySelector(`#trTo${i}`), t.to ?? settings.defaultTo);
   row.querySelector(`#trKind${i}`).value = t.kind || (isSimple() ? "repay" : "monthEnd");
   row.querySelector(`#trMemo${i}`).value = t.memo || "";
+  buildParts(row, t);
   const amt = row.querySelector(`#trAmt${i}`);
   amt.addEventListener("blur", ()=>{ if (hasVal(amt.value)) amt.value = fmtInput(toNum(amt.value)) || "0"; });
   row.querySelector("button.del").addEventListener("click", ()=>{ row.remove(); syncPrepayFromTransfers(); renderCalc(); });
   $("transfersBox").appendChild(row);
   return row;
 }
+/* 支払い1件の内訳欄。手入力の項目は入力欄、計算式の項目と（式があれば）金額は自動計算で読み取り専用 */
+function buildParts(row, t){
+  const c = projDefs(), box = row.querySelector(".parts"), amt = row.querySelector("input[id^=trAmt]");
+  box.hidden = !c.items.length;
+  amt.readOnly = !!c.amountNode;
+  amt.title = c.amountNode ? "支払額の計算式で自動計算" : "";
+  if (!c.items.length){ box.innerHTML = ""; return; }
+  const parts = t.parts || {};
+  box.innerHTML = `<div class="ptitle">内訳</div>` + c.items.map(x=>{
+    const id = `pt${row.querySelector("input").id}_${x.id}`;
+    return `<div class="field"><label for="${id}">${esc(x.name)}${x.node ? '<span class="fx">自動</span>' : ""}</label><div class="yen"><input id="${id}" data-item="${esc(x.id)}" inputmode="numeric" placeholder="0"${x.node ? " readonly" : ""}></div></div>`;
+  }).join("");
+  c.items.forEach(x=>{ const el = box.querySelector(`input[data-item="${CSS.escape(x.id)}"]`); if (!x.node && parts[x.id]) el.value = fmtInput(parts[x.id]); });
+  box.querySelectorAll("input:not([readonly])").forEach(inp=>inp.addEventListener("blur", ()=>{ if (hasVal(inp.value)) inp.value = fmtInput(toNum(inp.value)) || "0"; }));
+  recalcRow(row);
+}
+function rowInputs(row){
+  const inputs = {}; row.querySelectorAll(".parts input[data-item]:not([readonly])").forEach(el=>{ inputs[el.dataset.item] = toNum(el.value); });
+  return inputs;
+}
+function recalcRow(row){
+  const c = projDefs(); if (!c.items.length && !c.amountNode) return;
+  const amt = row.querySelector("input[id^=trAmt]");
+  const r = computePayment(c, rowInputs(row), amt.value);
+  row.querySelectorAll(".parts input[readonly]").forEach(el=>{ el.value = fmtInput(r.parts[el.dataset.item]) || "0"; });
+  if (c.amountNode) amt.value = fmtInput(r.amount) || "0";
+}
+function recalcTransfers(){ $("transfersBox").querySelectorAll(".transfer").forEach(recalcRow); }
 function setTransfers(list){ $("transfersBox").innerHTML = ""; list.forEach(addTransferRow); syncPrepayFromTransfers(); }
 function readTransfers(){
   return [...$("transfersBox").querySelectorAll(".transfer")].map(r=>{
     const q = sel => r.querySelector(sel);
     const from = q("select[id^=trFrom]").value, to = q("select[id^=trTo]").value;
-    return { date: q("input[type=date]").value, amount: toNum(q("input[id^=trAmt]").value), kind: q("select[id^=trKind]").value,
+    const c = projDefs(), calc = (c.items.length || c.amountNode) ? computePayment(c, rowInputs(r), q("input[id^=trAmt]").value) : null;
+    return { date: q("input[type=date]").value, amount: calc ? calc.amount : toNum(q("input[id^=trAmt]").value), ...(c.items.length ? { parts: calc.parts } : {}), kind: q("select[id^=trKind]").value,
       from, to, fromLabel: accountLabel(findAccount(from)), toLabel: accountLabel(findAccount(to)), memo: q("input[id^=trMemo]").value.trim() };
-  }).filter(t=>t.amount || t.date);
+  }).filter(t=>t.amount || t.date || (t.parts && Object.values(t.parts).some(v=>v)));
 }
 function syncPrepayFromTransfers(){
   const pre = readTransfers().filter(t=>t.kind==="prepay" && t.amount>0);
@@ -811,6 +977,29 @@ function addAcctRow(a){
   row.querySelector("button.del").addEventListener("click", ()=>{ row.remove(); syncDefaultAcctSelects(); });
   $("acctsBox").appendChild(row);
   return row;
+}
+let defSeq = 0;
+function addItemDefRow(x){
+  const i = defSeq++;
+  const row = document.createElement("div"); row.className = "def"; row.dataset.id = x.id || ("i" + Date.now().toString(36) + Math.random().toString(36).slice(2,6));
+  row.innerHTML = `<input id="dName${i}" maxlength="30" placeholder="例：元金" aria-label="項目名"><input id="dF${i}" maxlength="200" placeholder="空欄なら手入力" aria-label="計算式"><button type="button" aria-label="この項目を削除">削除</button>`;
+  row.querySelector(`#dName${i}`).value = x.name || ""; row.querySelector(`#dF${i}`).value = x.formula || "";
+  row.querySelector("button").addEventListener("click", ()=>row.remove());
+  $("itemDefBox").appendChild(row); return row;
+}
+function addConstRow(x){
+  const i = defSeq++;
+  const row = document.createElement("div"); row.className = "def const";
+  row.innerHTML = `<input id="cName${i}" maxlength="30" placeholder="例：利率" aria-label="定数名"><input id="cVal${i}" maxlength="20" placeholder="例：5%" aria-label="値"><button type="button" aria-label="この定数を削除">削除</button>`;
+  row.querySelector(`#cName${i}`).value = x.name || ""; row.querySelector(`#cVal${i}`).value = x.value ?? "";
+  row.querySelector("button").addEventListener("click", ()=>row.remove());
+  $("constBox").appendChild(row); return row;
+}
+function readDefs(){
+  const items = [...$("itemDefBox").querySelectorAll(".def")].map(r=>{ const [n,f] = r.querySelectorAll("input"); return { id: r.dataset.id, name: n.value.trim(), formula: f.value.trim() }; }).filter(x=>x.name);
+  const consts = [...$("constBox").querySelectorAll(".def")].map(r=>{ const [n,v] = r.querySelectorAll("input"); const raw = normExpr(v.value).trim();
+    return { name: n.value.trim(), value: /%$/.test(raw) ? toNum(raw.slice(0,-1))/100 : toNum(raw) }; }).filter(x=>x.name);
+  return { items, consts, amountFormula: $("sAmountF").value.trim() };
 }
 function readAccts(){
   return [...$("acctsBox").querySelectorAll(".acct")].map(r=>{
@@ -946,13 +1135,15 @@ function renderLedger(){
   }
   if (isSimple()){
     let c = 0;
+    const items = projDefs().items;
+    const itemSum = (e, id)=>(e.transfers || []).reduce((a,t)=>a + toNum(t.parts && t.parts[id]), 0);
     const lines = rows.map(({e,r})=>{ c += r.repayTotal;
       const trs = (e.transfers || []).filter(t=>t.amount > 0);
       const dates = trs.map(t=>fmtDate(t.date)).join("、") || "—";
       const flow = [...new Set(trs.map(t=>`${transferWho(t,"from")} → ${transferWho(t,"to")}`))].join("、") || "—";
-      return `<tr data-id="${esc(e.month)}" class="${e.month===editingId?"editing":""}" tabindex="0"><td>${monthLabel(e.month)}</td><td class="down">${yen(r.repayTotal)}</td><td class="bal down">${yen(c)}</td><td>${trs.length}回</td><td class="memo">${esc(dates)}</td><td class="memo" title="${esc(flow)}">${esc(flow)}</td><td class="bal">${balText(settings, r.end)}</td><td class="memo" title="${esc(e.memo)}">${esc(e.memo)}</td></tr>`; }).join("");
-    tb.innerHTML = `<thead><tr><th>月</th><th>その月の返済額</th><th>累計返済額</th><th>回数</th><th class="memo">支払日</th><th class="memo">振込元 → 振込先</th><th>残高</th><th class="memo">メモ</th></tr></thead><tbody>${lines}</tbody>` +
-      `<tfoot><tr><td>合計</td><td>${yen(sum("repayTotal"))}</td><td>${yen(sum("repayTotal"))}</td><td></td><td></td><td></td><td>${balText(settings, bal)}</td><td></td></tr></tfoot>`;
+      return `<tr data-id="${esc(e.month)}" class="${e.month===editingId?"editing":""}" tabindex="0"><td>${monthLabel(e.month)}</td><td class="down">${yen(r.repayTotal)}</td><td class="bal down">${yen(c)}</td>${items.map(x=>`<td>${yen(itemSum(e, x.id))}</td>`).join("")}<td>${trs.length}回</td><td class="memo">${esc(dates)}</td><td class="memo" title="${esc(flow)}">${esc(flow)}</td><td class="bal">${balText(settings, r.end)}</td><td class="memo" title="${esc(e.memo)}">${esc(e.memo)}</td></tr>`; }).join("");
+    tb.innerHTML = `<thead><tr><th>月</th><th>その月の返済額</th><th>累計返済額</th>${items.map(x=>`<th>${esc(x.name)}</th>`).join("")}<th>回数</th><th class="memo">支払日</th><th class="memo">振込元 → 振込先</th><th>残高</th><th class="memo">メモ</th></tr></thead><tbody>${lines}</tbody>` +
+      `<tfoot><tr><td>合計</td><td>${yen(sum("repayTotal"))}</td><td>${yen(sum("repayTotal"))}</td>${items.map(x=>`<td>${yen(rows.reduce((a,{e})=>a+itemSum(e, x.id),0))}</td>`).join("")}<td></td><td></td><td></td><td>${balText(settings, bal)}</td><td></td></tr></tfoot>`;
     return;
   }
   const head = `<thead><tr><th>月</th><th>その月の返済額</th><th>累計返済額</th><th>固定額</th><th>報酬</th><th>返済充当</th><th>本人報酬</th><th>貸付（補填）</th><th>先払い</th><th>月末振込</th><th>追加返済</th><th>残高</th><th class="memo">メモ</th></tr></thead>`;
@@ -1006,6 +1197,9 @@ function renderSettings(){
   $("sStart").value = fmtInput(settings.startBalance);
   $("sSurplus").value = settings.surplusMode;
   $("acctsBox").innerHTML = ""; (settings.accounts || []).forEach(addAcctRow);
+  $("itemDefBox").innerHTML = ""; (settings.items || []).forEach(addItemDefRow);
+  $("constBox").innerHTML = ""; (settings.consts || []).forEach(addConstRow);
+  $("sAmountF").value = settings.amountFormula || ""; $("defErr").hidden = true;
   $("sFrom").value = ""; $("sTo").value = ""; syncDefaultAcctSelects();
   syncSettingsRule();
 }
@@ -1058,9 +1252,11 @@ function fmtDate(d){ if (!d) return "日付なし"; const [y,m,dd] = d.split("-"
 function renderHistory(){
   const list = allTransfers(), tb = $("history");
   if (!list.length){ tb.innerHTML = `<tbody><tr><td class="empty">月の計算欄で「振込を追加」から支払日・金額・振込元・振込先を入れて保存すると、ここに新しい順で並びます。</td></tr></tbody>`; return; }
-  tb.innerHTML = `<thead><tr><th>支払日</th><th class="memo">対象月</th><th class="memo">種類</th><th>金額</th><th class="memo">振込元</th><th class="memo">振込先</th><th class="memo">メモ</th></tr></thead><tbody>` +
-    list.map(t=>`<tr data-id="${esc(t.month)}" tabindex="0"><td>${fmtDate(t.date)}</td><td class="memo">${monthLabel(t.month)}</td><td class="memo">${KINDS[t.kind] || "その他"}</td><td>${yen(t.amount)}</td><td class="memo flow">${esc(transferWho(t,"from"))}</td><td class="memo flow">→ ${esc(transferWho(t,"to"))}</td><td class="memo" title="${esc(t.memo)}">${esc(t.memo)}</td></tr>`).join("") +
-    `</tbody><tfoot><tr><td>合計</td><td></td><td></td><td>${yen(list.reduce((a,t)=>a+t.amount,0))}</td><td></td><td></td><td></td></tr></tfoot>`;
+  const items = projDefs().items;
+  const partsText = t=>items.filter(x=>t.parts && t.parts[x.id]).map(x=>`${x.name} ${yen(t.parts[x.id])}`).join(" / ");
+  tb.innerHTML = `<thead><tr><th>支払日</th><th class="memo">対象月</th><th class="memo">種類</th><th>金額</th>${items.length ? '<th class="memo">内訳</th>' : ""}<th class="memo">振込元</th><th class="memo">振込先</th><th class="memo">メモ</th></tr></thead><tbody>` +
+    list.map(t=>`<tr data-id="${esc(t.month)}" tabindex="0"><td>${fmtDate(t.date)}</td><td class="memo">${monthLabel(t.month)}</td><td class="memo">${KINDS[t.kind] || "その他"}</td><td>${yen(t.amount)}</td>${items.length ? `<td class="memo" title="${esc(partsText(t))}">${esc(partsText(t))}</td>` : ""}<td class="memo flow">${esc(transferWho(t,"from"))}</td><td class="memo flow">→ ${esc(transferWho(t,"to"))}</td><td class="memo" title="${esc(t.memo)}">${esc(t.memo)}</td></tr>`).join("") +
+    `</tbody><tfoot><tr><td>合計</td><td></td><td></td><td>${yen(list.reduce((a,t)=>a+t.amount,0))}</td>${items.length ? "<td></td>" : ""}<td></td><td></td><td></td></tr></tfoot>`;
 }
 
 /* ---------- 内訳マトリクス（月 × 内訳 × 内訳の内訳） ---------- */
@@ -1136,12 +1332,14 @@ $("ledger").addEventListener("click", e=>{ const tr = e.target.closest("tr[data-
 $("ledger").addEventListener("keydown", e=>{ if (e.key==="Enter"){ const tr = e.target.closest("tr[data-id]"); if (tr) openRow(tr.dataset.id); } });
 $("sRuleType").addEventListener("change", syncSettingsRule);
 $("sMode").addEventListener("change", syncSettingsMode);
+$("addItemDef").addEventListener("click", ()=>addItemDefRow({}).querySelector("input").focus());
+$("addConst").addEventListener("click", ()=>addConstRow({}).querySelector("input").focus());
 $("addTransfer").addEventListener("click", ()=>{ addTransferRow({ date: todayStr(), kind: isSimple() ? "repay" : "monthEnd" }).querySelector("input").focus(); });
 $("addMonthEnd").addEventListener("click", ()=>{
   const e = readForm(); const r = calcMonth(e, settings, prevBalanceFor(e.month || "9999-99"));
   addTransferRow({ date: todayStr(), kind:"monthEnd", amount: r.monthEnd, memo:"" }); syncPrepayFromTransfers(); renderCalc();
 });
-$("transfersBox").addEventListener("input", ()=>syncPrepayFromTransfers());
+$("transfersBox").addEventListener("input", e=>{ const row = e.target.closest(".transfer"); if (row) recalcRow(row); syncPrepayFromTransfers(); });
 $("transfersBox").addEventListener("change", ()=>{ syncPrepayFromTransfers(); renderCalc(); });
 $("addAcct").addEventListener("click", ()=>{ addAcctRow({}).querySelector("input").focus(); syncDefaultAcctSelects(); });
 $("acctsBox").addEventListener("input", ()=>syncDefaultAcctSelects());
@@ -1164,7 +1362,10 @@ $("settingsForm").addEventListener("submit", async ev=>{
   ev.preventDefault();
   const s = { name:$("sName").value.trim(), title:$("sTitle").value.trim(), memo:$("sMemo").value.trim(), status:$("sStatus").value, inputMode:$("sMode").value, defaultFixed:toNum($("sFixed").value), ruleType:$("sRuleType").value,
     ruleValue:toNum($("sRuleValue").value), startBalance:toNum($("sStart").value), surplusMode:$("sSurplus").value,
-    accounts: readAccts(), defaultFrom: $("sFrom").value, defaultTo: $("sTo").value };
+    accounts: readAccts(), defaultFrom: $("sFrom").value, defaultTo: $("sTo").value, ...readDefs() };
+  const chk = compileDefs(s);
+  $("defErr").hidden = !chk.errors.length; $("defErr").innerHTML = chk.errors.map(esc).join("<br>");
+  if (chk.errors.length){ flash("sToast","計算式を確認してください。"); return; }
   try { await persistSettings(s); flash("sToast","設定を保存しました。"); } catch(_){ flash("sToast","保存できませんでした。"); }
 });
 
