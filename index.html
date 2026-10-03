@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>返済・補填台帳</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3CradialGradient id='g' cx='.35' cy='.3' r='.8'%3E%3Cstop offset='0' stop-color='%23fff3b0'/%3E%3Cstop offset='.45' stop-color='%23f2c230'/%3E%3Cstop offset='1' stop-color='%23b07a0c'/%3E%3C/radialGradient%3E%3C/defs%3E%3Ccircle cx='32' cy='32' r='28' fill='url(%23g)' stroke='%238a5a00' stroke-width='3'/%3E%3Cpath d='M21 16l11 15 11-15M32 31v19M22 33h20M22 41h20' fill='none' stroke='%236b4300' stroke-width='5.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<title>シャッキーーン</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23111'/%3E%3Cpath d='M32 8l6 18 18 6-18 6-6 18-6-18-18-6 18-6z' fill='%23f0b90b'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=IBM+Plex+Sans+JP:wght@400;500;700&family=Zen+Kaku+Gothic+New:wght@700;900&display=swap">
@@ -136,16 +136,19 @@ table.projs tr.done td{opacity:.6}
 /* 左サイドバー：プロジェクトメニュー。狭い画面ではメニューボタンで開く引き出しになる */
 .side{position:fixed;top:0;left:0;bottom:0;width:240px;background:var(--paper);border-right:1px solid var(--line);padding:20px 12px;overflow-y:auto;z-index:20;display:flex;flex-direction:column;gap:4px}
 .side-brand{padding:0 4px 14px;color:var(--ink)}
-.side-brand svg{display:block;width:100%;max-width:220px;height:auto;overflow:visible}
-.side-brand small{display:block;font-size:.72rem;color:var(--muted);letter-spacing:.08em;margin:2px 0 0 52px}
-.logo-word{font-family:"Dela Gothic One","Zen Kaku Gothic New","Hiragino Sans","Yu Gothic",sans-serif;font-weight:900;font-size:27px;fill:currentColor;stroke:currentColor;stroke-width:.8;stroke-linejoin:round;paint-order:stroke}
+.side-brand svg{display:block;width:100%;max-width:230px;height:auto;overflow:visible}
+.logo-word{font-family:"Dela Gothic One","Zen Kaku Gothic New","Hiragino Sans","Yu Gothic",sans-serif;font-weight:900;font-size:30px;fill:#fff;stroke:#111;stroke-width:3.2;stroke-linejoin:round;paint-order:stroke;filter:drop-shadow(2px 2px 0 #111)}
 @media (prefers-reduced-motion:no-preference){
+  .logo .brake{animation:brake .9s cubic-bezier(.2,.9,.3,1.3) both}
+  .logo .speed,.logo .skid{animation:fadein .6s ease-out both}
+  .logo .stop,.logo .dust{animation:pop .5s .55s ease-out both}
   .logo .tw{transform-box:fill-box;transform-origin:center;animation:twinkle 2.4s ease-in-out infinite}
   .logo .tw.d2{animation-delay:.8s} .logo .tw.d3{animation-delay:1.6s}
-  .logo .shine{animation:shine 3.2s ease-in-out infinite}
 }
+@keyframes brake{0%{transform:translateX(-60px);opacity:0}55%{transform:translateX(6px)}75%{transform:translateX(-2px)}100%{transform:none;opacity:1}}
+@keyframes fadein{from{opacity:0}}
+@keyframes pop{from{opacity:0;transform:scale(.6)}}
 @keyframes twinkle{0%,100%{transform:scale(.55) rotate(0);opacity:.55}50%{transform:scale(1.15) rotate(45deg);opacity:1}}
-@keyframes shine{0%,60%{transform:translateX(-40px)}100%{transform:translateX(40px)}}
 .side button{width:100%;text-align:left;border:none;background:none;border-radius:6px;color:var(--ink)}
 .side-head{font-weight:700;padding:9px 10px;display:flex;justify-content:space-between;align-items:center}
 .side-head .count{font-size:.75rem;font-weight:500;color:var(--muted)}
@@ -239,25 +242,25 @@ details summary{cursor:pointer;font-family:var(--font-display);font-weight:700;f
 </head>
 <body>
 <aside class="side" id="side" aria-label="メニュー">
-  <div class="side-brand"><svg class="logo" viewBox="0 0 240 64" role="img" aria-label="シャッキーーン 返済・補填台帳">
-    <defs>
-      <radialGradient id="lgCoin" cx=".35" cy=".3" r=".85"><stop offset="0" stop-color="#fff6c2"/><stop offset=".45" stop-color="#f3c535"/><stop offset="1" stop-color="#a8700a"/></radialGradient>
-      <linearGradient id="lgGold" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffe680"/><stop offset=".5" stop-color="#f0b90b"/><stop offset="1" stop-color="#c68a00"/></linearGradient>
-      <clipPath id="lgClip"><circle cx="26" cy="34" r="19"/></clipPath>
-    </defs>
-    <g fill="none" stroke="#e9ad0c" stroke-linecap="round" opacity=".95">
-      <path d="M62 53 Q150 47 232 50" stroke-width="3"/><path d="M84 59h64" stroke-width="1.8"/><path d="M158 59h22" stroke-width="1.8"/>
+  <div class="side-brand"><svg class="logo" viewBox="0 0 240 70" role="img" aria-label="シャッキーーン">
+    <g class="speed" fill="none" stroke="currentColor" stroke-linecap="round" opacity=".55">
+      <path d="M2 22h22" stroke-width="2"/><path d="M8 31h20" stroke-width="2.6"/><path d="M0 40h26" stroke-width="2"/><path d="M10 48h16" stroke-width="1.6"/>
     </g>
-    <circle cx="26" cy="34" r="19" fill="url(#lgCoin)" stroke="#8a5a00" stroke-width="2"/>
-    <circle cx="26" cy="34" r="15" fill="none" stroke="#b98200" stroke-width="1" opacity=".7"/>
-    <path d="M18.5 23.5l7.5 10 7.5-10M26 33.5v12M19 35.5h14M19 40.5h14" fill="none" stroke="#6b4300" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>
-    <g clip-path="url(#lgClip)"><rect class="shine" x="10" y="10" width="8" height="50" fill="#fff" opacity=".45" transform="skewX(-20)"/></g>
-    <path class="tw" d="M8 8l2 5 5 2-5 2-2 5-2-5-5-2 5-2z" fill="url(#lgGold)"/>
-    <path class="tw d2" d="M46 9l1.5 3.5 3.5 1.5-3.5 1.5-1.5 3.5-1.5-3.5-3.5-1.5 3.5-1.5z" fill="url(#lgGold)"/>
-    <path class="tw d3" d="M44 50l1.2 2.8 2.8 1.2-2.8 1.2-1.2 2.8-1.2-2.8-2.8-1.2 2.8-1.2z" fill="url(#lgGold)"/>
-    <path class="tw d2" d="M228 14l1.5 3.5 3.5 1.5-3.5 1.5-1.5 3.5-1.5-3.5-3.5-1.5 3.5-1.5z" fill="url(#lgGold)"/>
-    <text class="logo-word" x="0" y="0" transform="translate(56 44) skewX(-15)" textLength="172" lengthAdjust="spacingAndGlyphs">シャッキーーン</text>
-  </svg><small>返済・補填台帳</small></div>
+    <g class="skid" fill="none" stroke="currentColor" stroke-linecap="round">
+      <path d="M30 60 C90 58 150 58 206 57" stroke-width="2.6" opacity=".75" stroke-dasharray="3 2 30 3 60 2 200"/>
+      <path d="M44 65 C100 63 160 63 210 62" stroke-width="1.8" opacity=".5" stroke-dasharray="20 3 40 2 200"/>
+    </g>
+    <g class="dust" fill="currentColor" opacity=".28">
+      <circle cx="212" cy="57" r="4.5"/><circle cx="219" cy="53" r="3.5"/><circle cx="222" cy="60" r="3"/><circle cx="228" cy="56" r="2"/>
+    </g>
+    <g class="stop" fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="2.4">
+      <path d="M224 18l8-6"/><path d="M227 28h10"/><path d="M224 38l8 5"/>
+    </g>
+    <g class="brake"><text class="logo-word" x="0" y="0" transform="translate(32 48) skewX(12)" textLength="186" lengthAdjust="spacingAndGlyphs">シャッキーーン</text></g>
+    <path class="tw" d="M30 2l1.6 4 4 1.6-4 1.6-1.6 4-1.6-4-4-1.6 4-1.6z" fill="#f0b90b"/>
+    <path class="tw d2" d="M150 1l1.3 3.2 3.2 1.3-3.2 1.3-1.3 3.2-1.3-3.2-3.2-1.3 3.2-1.3z" fill="#f0b90b"/>
+    <path class="tw d3" d="M236 2l1.3 3.2 3.2 1.3-3.2 1.3-1.3 3.2-1.3-3.2-3.2-1.3 3.2-1.3z" fill="#f0b90b"/>
+  </svg></div>
   <button type="button" class="side-head" id="navProjects"><span>プロジェクト</span><span class="count" id="navCount"></span></button>
   <div class="side-list" id="navList"></div>
   <button type="button" class="side-new" id="navNew">＋ 新規プロジェクト</button>
@@ -268,8 +271,8 @@ details summary{cursor:pointer;font-family:var(--font-display);font-weight:700;f
   <header class="head">
     <div>
       <button type="button" class="menu-btn" id="menuBtn" aria-controls="side" aria-expanded="false" style="margin-bottom:10px">☰ メニュー</button>
-      <h1 id="title">返済・補填台帳</h1>
-      <p class="muted small" id="subtitle">誰の・何の返済かをプロジェクトごとに分けて、毎月の返済額と累計返済額・残高を記録します。</p>
+      <h1 id="title">シャッキーーン</h1>
+      <p class="muted small" id="subtitle">誰の・何の案件かをプロジェクトごとに分けて、取引ごとの金額と累計・残高を記録します。</p>
     </div>
     <div class="who">
       <span class="store" id="storeBadge">読み込み中…</span>
@@ -318,7 +321,7 @@ details summary{cursor:pointer;font-family:var(--font-display);font-weight:700;f
   <div class="note" id="importBox" hidden>このブラウザに以前の記録が残っています。<button type="button" class="link" id="importBtn">クラウドに取り込む</button></div>
 
   <section class="kpis pv lv" aria-label="現在の状況">
-    <div class="kpi"><span>累計 返済額</span><b id="kRepay" class="down">0円</b></div>
+    <div class="kpi"><span id="kRepayLabel">累計 返済額</span><b id="kRepay" class="down">0円</b></div>
     <div class="kpi"><span id="kLastLabel">直近月の返済額</span><b id="kLast">0円</b></div>
     <div class="kpi main"><span>現在の貸付残高</span><b id="kBalance">0円</b></div>
     <div class="kpi"><span>累計 貸付（補填）</span><b id="kLoan">0円</b></div>
@@ -449,6 +452,19 @@ details summary{cursor:pointer;font-family:var(--font-display);font-weight:700;f
           <div class="field"><label for="sRuleType">返済充当の方式</label><select id="sRuleType"><option value="amt">固定額（例：毎月10万円）</option><option value="pct">報酬の割合（例：50%）</option></select></div>
           <div class="field"><label for="sRuleValue" id="sRuleLabel">充当額</label><div class="yen" id="sRuleWrap"><input id="sRuleValue" inputmode="decimal"></div></div>
         </div>
+        <fieldset class="simple-only" id="termsSet">
+          <legend>表示する言葉（借金の返済以外にも使えるように変更できます）</legend>
+          <div class="row">
+            <div class="field"><label for="t_repay">「返済」</label><input id="t_repay" maxlength="10"></div>
+            <div class="field"><label for="t_paid">「支払額」</label><input id="t_paid" maxlength="10"></div>
+          </div>
+          <div class="row">
+            <div class="field"><label for="t_loan">「借入額」</label><input id="t_loan" maxlength="10"></div>
+            <div class="field"><label for="t_balance">「残高」</label><input id="t_balance" maxlength="10"></div>
+          </div>
+          <span class="hint">空欄なら元の言葉のままです。例：返済→入金、借入額→目標額、残高→残り。台帳の計算式でも、変えた言葉をそのまま使えます。</span>
+          <div class="ferr" id="termErr" hidden></div>
+        </fieldset>
         <div class="row">
           <div class="field"><label for="sStart" id="sStartLabel">開始時点の貸付残高</label><div class="yen"><input id="sStart" inputmode="numeric" placeholder="0"></div><span class="hint" id="sStartHint">ツールを使い始める前からの借金</span></div>
           <div class="field calc-only"><label for="sSurplus">報酬が固定額を上回った月</label><select id="sSurplus"><option value="pay">上回った分も全額支払う</option><option value="repay">上回った分を追加返済に回す</option></select></div>
@@ -472,15 +488,15 @@ details summary{cursor:pointer;font-family:var(--font-display);font-weight:700;f
         <div class="spage" data-pages="formulas" id="ledgerFxSet" style="display:grid;gap:10px">
           <div class="ptitle">台帳の計算式（取引1件ごと）</div>
           <span class="hint calc-only">台帳の計算式は「返済額を直接入力」方式で使います。「基本情報」で入力方法を切り替えると設定できます。</span>
-          <div class="lfx simple-only"><label for="lfRepay">返済額</label><input id="lfRepay" maxlength="200"></div>
-          <div class="lfx simple-only"><label for="lfBalance">残高</label><input id="lfBalance" maxlength="200"></div>
-          <span class="hint simple-only">空欄なら初期の式を使います。累計返済額は、各取引の返済額の合計です。</span>
+          <div class="lfx simple-only"><label for="lfRepay" id="lfRepayLabel">返済額</label><input id="lfRepay" maxlength="200"></div>
+          <div class="lfx simple-only"><label for="lfBalance" id="lfBalanceLabel">残高</label><input id="lfBalance" maxlength="200"></div>
+          <span class="hint simple-only" id="lfHint1">空欄なら初期の式を使います。累計返済額は、各取引の返済額の合計です。</span>
           <div class="simple-only" style="gap:8px">
             <div class="defhead const"><span>台帳に追加する列</span><span>計算式</span><span></span></div>
             <div class="defs" id="ledgerColBox"></div>
             <div><button type="button" class="link" id="addLedgerCol">＋ 列を追加（例：未返済の支払＝支払額 − 返済額）</button></div>
           </div>
-          <span class="hint simple-only">使える名前：支払額（この取引で払った額）・借入額・前回残高・前回までの返済額・前回までの支払額・返済額・累計返済額・累計支払額・残高、内訳項目名・定数名、上の追加の列。<br>関数：四捨五入( )・切り捨て( )・切り上げ( )・最小( , )・最大( , )。返済額の式では、返済額・累計返済額・残高はまだ決まっていないので使えません。</span>
+          <span class="hint simple-only" id="lfHint2">使える名前：支払額（この取引で払った額）・借入額・前回残高・前回までの返済額・前回までの支払額・返済額・累計返済額・累計支払額・残高、内訳項目名・定数名、上の追加の列。<br>関数：四捨五入( )・切り捨て( )・切り上げ( )・最小( , )・最大( , )。返済額の式では、返済額・累計返済額・残高はまだ決まっていないので使えません。</span>
           <div class="ferr" id="ledgerErr" hidden></div>
         </div>
         <div class="spage" data-pages="accounts" id="acctsSet" style="display:grid;gap:10px">
@@ -527,7 +543,7 @@ function calcMonth(e, s, prev, cum){
     const v = evalLedger(L, s, e, { paid, prev, prevRepay: cum ? cum.repay : 0, prevPaid: cum ? cum.paid : 0 });
     const repay = v.repay, end = v.balance, over = paid - repay;
     const notes = [];
-    if (over > 0) notes.push(toNum(s.startBalance) > 0 ? `支払額のうち ${yen(over)} は返済額に含めていません（台帳の計算式「返済額」による）。` : `借入額が登録されていないため、この支払 ${yen(over)} は返済額に含めていません。「基本情報」で借入額を登録すると返済として計算されます。`);
+    if (over > 0) notes.push(trS(s, toNum(s.startBalance) > 0 ? `支払額のうち ${yen(over)} は返済額に含めていません（台帳の計算式「返済額」による）。` : `借入額が登録されていないため、この支払 ${yen(over)} は返済額に含めていません。「基本情報」で借入額を登録すると返済として計算されます。`));
     return { simple:true, F:0, R:0, rt:"none", rv:0, repay, net:0, loan:0, extraAuto:0, total:paid, P:0, rewardInPrepay:0, loanInPrepay:0,
       monthEnd:paid, rewardRemain:0, loanRemain:0, M:0, prev, end, repayTotal:repay, paid, over, cols: v.cols, items:[{ name:UNCLASSIFIED, gross:0, repay, net:0 }], notes };
   }
@@ -615,6 +631,12 @@ function buildLedger(months, s){
 /* ---------- 台帳の計算式（プロジェクトごと） ----------
    1取引ごとに「返済額（返済に数える額）」と「残高」を式で求める。追加の列も式で作れる。
    使える名前：支払額・借入額・前回残高・前回までの返済額・前回までの支払額・返済額・累計返済額・累計支払額・残高、内訳項目名、定数名 */
+/* 表示する言葉（プロジェクトごと）。借金の返済以外にも使えるように「返済」「借入額」「残高」「支払額」を置き換えられる */
+const TERM_DEFAULTS = { repay:"返済", loan:"借入額", balance:"残高", paid:"支払額" };
+const TERM_KEYS = { "支払額":"paid", "借入額":"loan", "返済":"repay", "残高":"balance" };
+function termsOf(s){ const t = (s && s.terms) || {}; const o = {}; Object.keys(TERM_DEFAULTS).forEach(k=>{ o[k] = String(t[k] || "").trim() || TERM_DEFAULTS[k]; }); return o; }
+function trS(s, str){ if (!s || s.inputMode !== "simple") return str; const t = termsOf(s); return String(str).replace(/支払額|借入額|返済|残高/g, w=>t[TERM_KEYS[w]]); }
+function tr(str){ return trS(settings, str); }
 const LEDGER_VARS = ["支払額","借入額","前回残高","前回までの返済額","前回までの支払額","返済額","累計返済額","累計支払額","残高"];
 const LEDGER_DEFAULT = { repay:"最小(支払額, 最大(前回残高, 0))", balance:"最大(借入額 - 累計返済額, 0)" };
 function compileLedger(src){
@@ -627,19 +649,20 @@ function compileLedger(src){
   const seen = new Set([...LEDGER_VARS, ...itemNames, ...constNames]);
   cols.forEach(c=>{ if (!c.name) errors.push("名前のない追加の列があります。"); else if (seen.has(c.name)) errors.push(`追加の列「${c.name}」はほかの名前と重なっています。`); else seen.add(c.name);
     if (c.name && (FUNCS[c.name] || /^[\d.]/.test(c.name) || /[+\-*/(),\[\]]/.test(c.name))) errors.push(`「${c.name}」は列名に使えません。`); });
-  const names = [...LEDGER_VARS, ...itemNames, ...constNames, ...colNames];
+  const alias = {}; LEDGER_VARS.forEach(v=>{ const c = trS(src, v); if (c !== v){ if (seen.has(c)) errors.push(`言葉「${c}」がほかの名前と重なっています。`); alias[c] = v; } });
+  const names = [...LEDGER_VARS, ...Object.keys(alias), ...itemNames, ...constNames, ...colNames];
   const parse = (f, label, ban)=>{ const t = String(f || "").trim(); if (!t) return null;
-    try { const n = parseExpr(t, names); const bad = [...refsOf(n)].filter(r=>ban.includes(r)); if (bad.length) errors.push(`${label}：「${bad.join("・")}」はこの式では使えません（まだ決まっていない値です）。`); return n; }
+    try { const n = parseExpr(t, names, alias); const bad = [...refsOf(n)].filter(r=>ban.includes(r)); if (bad.length) errors.push(`${label}：「${bad.map(b=>trS(src, b)).join("・")}」はこの式では使えません（まだ決まっていない値です）。`); return n; }
     catch(e){ errors.push(`${label}：${e.message}`); return null; } };
-  const repay = parse(fx.repay, "返済額の式", ["返済額","累計返済額","残高", ...colNames]);
-  const balance = parse(fx.balance, "残高の式", ["残高", ...colNames]);
+  const repay = parse(fx.repay, trS(src, "返済額の式"), ["返済額","累計返済額","残高", ...colNames]);
+  const balance = parse(fx.balance, trS(src, "残高の式"), ["残高", ...colNames]);
   const colList = cols.map((c,i)=>({ name:c.name, formula:c.formula, node: parse(c.formula, `列「${c.name || "（名前なし）"}」の式`, colNames.slice(i)) }));
-  return { defs, repay, balance, cols: colList, errors,
+  return { defs, repay, balance, cols: colList, errors, names, alias,
     dRepay: parseExpr(LEDGER_DEFAULT.repay, names), dBalance: parseExpr(LEDGER_DEFAULT.balance, names) };
 }
 let ledgerCache = null, ledgerCacheKey = "";
 function ledgerFx(s){
-  const key = JSON.stringify([s.items, s.consts, s.ledgerFx, s.ledgerCols]);
+  const key = JSON.stringify([s.items, s.consts, s.ledgerFx, s.ledgerCols, s.terms, s.inputMode]);
   if (key !== ledgerCacheKey){ ledgerCache = compileLedger(s); ledgerCacheKey = key; }
   return ledgerCache;
 }
@@ -826,7 +849,7 @@ function esc(s){ return String(s ?? "").replace(/[&<>"']/g, c=>({"&":"&amp;","<"
 /* ---------- 状態と保存先 ----------
    meta: 全体の設定（口座とプロジェクト一覧）。allMonths: 全プロジェクトの月次記録（各行に project）。
    settings と months は、開いているプロジェクトの分だけを切り出したもの（画面の描画はこちらを使う）。 */
-const PROJECT_KEYS = ["id","name","title","memo","status","inputMode","items","consts","ledgerFx","ledgerCols","defaultFixed","ruleType","ruleValue","startBalance","surplusMode","defaultFrom","defaultTo","createdAt"];
+const PROJECT_KEYS = ["id","name","title","memo","status","inputMode","items","consts","ledgerFx","ledgerCols","terms","defaultFixed","ruleType","ruleValue","startBalance","surplusMode","defaultFrom","defaultTo","createdAt"];
 const LEGACY_ID = "main";   // プロジェクト機能より前の記録はこのプロジェクトに入る
 let meta = { accounts:[], projects:[] };
 let allMonths = [];
@@ -999,7 +1022,7 @@ function route(){
   navAutoFor = cur;
   applyView(); renderDash();
   if (cur && !same){ editingId = null; renderSettings(); startNew(); renderAll(); }
-  if (!cur){ $("title").textContent = "返済・補填台帳"; document.title = "返済・補填台帳"; }
+  if (!cur){ $("title").textContent = "プロジェクト"; document.title = "シャッキーーン"; }
   window.scrollTo(0, 0);
   if (!cur && pendingNew){ pendingNew = false; showNewProject(); }
 }
@@ -1104,7 +1127,7 @@ function todayStr(){ const d = new Date(); return `${d.getFullYear()}-${String(d
 function addTransferRow(t){
   const i = trSeq++;
   const row = document.createElement("div"); row.className = "transfer";
-  row.innerHTML = `<div class="head2"><span>${isSimple() ? "返済" : "振込"}</span><button type="button" class="link del">削除</button></div>
+  row.innerHTML = `<div class="head2"><span>${isSimple() ? tr("返済") : "振込"}</span><button type="button" class="link del">削除</button></div>
     <div class="row">
       <div class="field"><label for="trDate${i}">支払日</label><input type="date" id="trDate${i}"></div>
       <div class="field"><label for="trAmt${i}">金額</label><div class="yen"><input id="trAmt${i}" inputmode="numeric" placeholder="0"></div></div>
@@ -1236,6 +1259,11 @@ function renameInFormulas(oldName, newName){
   rows.forEach(r=>{ const f = r.querySelector("input.f"); if (!f.value.trim()) return;
     try { const node = parseExpr(f.value, names); if (refsOf(node).has(oldName)) f.value = exprText(node, n=>n===oldName ? newName : n); } catch(_){} });
 }
+/* 保存してある台帳の式（元の言葉）を、このプロジェクトの言葉で表示する */
+function showFx(f){
+  if (!f) return "";
+  try { const L = ledgerFx(settings); const n = parseExpr(f, L.names, L.alias); return n ? exprText(n, x=>LEDGER_VARS.includes(x) ? tr(x) : x) : f; } catch(_){ return f; }
+}
 function addLedgerColRow(x){
   const i = defSeq++;
   const row = document.createElement("div"); row.className = "def lcol";
@@ -1244,6 +1272,7 @@ function addLedgerColRow(x){
   row.querySelector("button").addEventListener("click", ()=>row.remove());
   $("ledgerColBox").appendChild(row); return row;
 }
+function readTerms(){ const o = {}; Object.keys(TERM_DEFAULTS).forEach(k=>{ const v = $("t_" + k).value.trim(); if (v && v !== TERM_DEFAULTS[k]) o[k] = v; }); return o; }
 function readLedgerFx(){
   return { ledgerFx: { repay: $("lfRepay").value.trim(), balance: $("lfBalance").value.trim() },
     ledgerCols: [...$("ledgerColBox").querySelectorAll(".def")].map(r=>{ const [n,f] = r.querySelectorAll("input"); return { name: n.value.trim(), formula: f.value.trim() }; }).filter(x=>x.name || x.formula) };
@@ -1326,20 +1355,20 @@ function renderCalc(){
     const before = buildLedger(priorRecords(key), settings).reduce((a,x)=>a+x.r.repayTotal, 0);
     const n = (e.transfers || []).filter(t=>t.amount > 0).length;
     // 登録済みの取引にこの入力を加えたときの、最終支払日時点の累計返済額と残高
-    const all = months.filter(m=>m.month !== editingId).concat(e.month ? [e] : []);
+    const all = months.filter(m=>m.month !== editingId && m.month !== e.month).concat(e.month ? [e] : []);
     const rowsAll = buildLedger(all, settings), lastR = rowsAll[rowsAll.length-1];
     const lastDate = lastR ? (isTxKey(lastR.e.month) ? lastR.e.month.slice(0,10) : ((lastR.e.transfers || []).map(t=>t.date).filter(Boolean).sort().pop() || "")) : "";
     const asOf = lastDate ? (()=>{ const [y,m,d] = lastDate.split("-"); return `${y}年${Number(m)}月${Number(d)}日`; })() : "";
-    $("sPaidLabel").textContent = asOf ? `${asOf}時点の返済額` : "最終支払日時点の返済額";
+    $("sPaidLabel").textContent = tr(asOf ? `${asOf}時点の返済額` : "最終支払日時点の返済額");
     $("sPaid").textContent = yen(rowsAll.reduce((a,x)=>a+x.r.repayTotal, 0));
     $("sEnd").textContent = yen(lastR ? lastR.r.end : toNum(settings.startBalance));
-    $("sEnd").previousElementSibling.textContent = asOf ? `${asOf}時点の残高` : "残高";
-    $("sCum").textContent = `借入額 ${yen(toNum(settings.startBalance))}`;
+    $("sEnd").previousElementSibling.textContent = tr(asOf ? `${asOf}時点の残高` : "残高");
+    $("sCum").textContent = tr(`借入額 ${yen(toNum(settings.startBalance))}`);
     $("rSteps").innerHTML = [
       `借入額は <b>${yen(toNum(settings.startBalance))}</b>${toNum(settings.startBalance) > 0 ? "" : "（未登録）"}です。この取引より前の返済額の累計は ${yen(before)}、残高は <b>${yen(r.prev)}</b> です。`,
       !n ? `支払額がまだ入力されていません。` : r.over > 0 ? `この取引の支払額は ${yen(r.paid)} で、そのうち返済に充てるのは <b class="down">${yen(r.repayTotal)}</b> です（残高を超える ${yen(r.over)} は含めません）。` : `この取引で <b class="down">${yen(r.repayTotal)}</b> を返済します。`,
       `返済後の残高は <b>${yen(r.end)}</b>、累計返済額は ${yen(before + r.repayTotal)} になります。`
-    ].map(x=>`<li>${x}</li>`).join("");
+    ].map(x=>`<li>${tr(x)}</li>`).join("");
     $("rNotes").innerHTML = r.notes.map(n=>`<div class="note">${esc(n)}</div>`).join("");
     return;
   }
@@ -1400,7 +1429,7 @@ function renderLedger(){
 
   const tb = $("ledger");
   if (!rows.length){
-    tb.innerHTML = `<tbody><tr><td class="empty" colspan="13">まだ記録がありません。${isSimple() ? "上で支払日と返済額を入れて「取引を台帳に保存」" : "上の「今月の計算」で月と報酬額を入れて「この月を台帳に保存」"}を押すと、ここに1行ずつ溜まっていきます。</td></tr></tbody>`;
+    tb.innerHTML = `<tbody><tr><td class="empty" colspan="13">まだ記録がありません。${isSimple() ? tr("上で支払日と返済額を入れて「取引を台帳に保存」") : "上の「今月の計算」で月と報酬額を入れて「この月を台帳に保存」"}を押すと、ここに1行ずつ溜まっていきます。</td></tr></tbody>`;
     return;
   }
   if (isSimple()){
@@ -1414,7 +1443,7 @@ function renderLedger(){
       const memo = [e.memo, ...trs.map(t=>t.memo)].filter(Boolean).join("・");
       const when = isTxKey(e.month) ? monthLabel(e.month) : `${dates}（${monthLabel(e.month)}分）`;
       return `<tr data-id="${esc(e.month)}" class="${e.month===editingId?"editing":""}" tabindex="0"><td class="memo">${esc(when)}</td><td>${yen(r.paid)}</td><td class="down">${yen(r.repayTotal)}</td><td class="bal down">${yen(c)}</td>${items.map(x=>`<td>${yen(itemSum(e, x.id))}</td>`).join("")}${lcols.map(n=>`<td>${yen((r.cols || {})[n] || 0)}</td>`).join("")}<td class="memo" title="${esc(flow)}">${esc(flow)}</td><td class="bal">${balText(settings, r.end)}</td><td class="memo" title="${esc(memo)}">${esc(memo)}</td></tr>`; }).join("");
-    tb.innerHTML = `<thead><tr><th class="memo">支払日</th><th>支払額</th><th>うち返済額</th><th>累計返済額</th>${items.map(x=>`<th>${esc(x.name)}</th>`).join("")}${lcols.map(n=>`<th>${esc(n)}</th>`).join("")}<th class="memo">振込元 → 振込先</th><th>残高</th><th class="memo">メモ</th></tr></thead><tbody>${lines}</tbody>` +
+    tb.innerHTML = `<thead><tr><th class="memo">支払日</th><th>${tr("支払額")}</th><th>${tr("うち返済額")}</th><th>${tr("累計返済額")}</th>${items.map(x=>`<th>${esc(x.name)}</th>`).join("")}${lcols.map(n=>`<th>${esc(n)}</th>`).join("")}<th class="memo">振込元 → 振込先</th><th>${tr("残高")}</th><th class="memo">メモ</th></tr></thead><tbody>${lines}</tbody>` +
       `<tfoot><tr><td>合計（${rows.length}件）</td><td>${yen(sum("paid"))}</td><td>${yen(sum("repayTotal"))}</td><td>${yen(sum("repayTotal"))}</td>${items.map(x=>`<td>${yen(rows.reduce((a,{e})=>a+itemSum(e, x.id),0))}</td>`).join("")}${lcols.map(()=>"<td></td>").join("")}<td></td><td>${balText(settings, bal)}</td><td></td></tr></tfoot>`;
     return;
   }
@@ -1472,9 +1501,10 @@ function renderSettings(){
   $("itemDefBox").innerHTML = ""; (settings.items || []).forEach(addItemDefRow);
   $("constBox").innerHTML = ""; (settings.consts || []).forEach(addConstRow);
   const lf = settings.ledgerFx || {};
-  $("lfRepay").value = lf.repay || ""; $("lfBalance").value = lf.balance || "";
-  $("lfRepay").placeholder = "初期の式：" + LEDGER_DEFAULT.repay.replace(/-/g,"−"); $("lfBalance").placeholder = "初期の式：" + LEDGER_DEFAULT.balance.replace(/-/g,"−");
-  $("ledgerColBox").innerHTML = ""; (settings.ledgerCols || []).forEach(addLedgerColRow); $("ledgerErr").hidden = true;
+  $("lfRepay").value = showFx(lf.repay); $("lfBalance").value = showFx(lf.balance);
+  $("lfRepay").placeholder = "初期の式：" + showFx(LEDGER_DEFAULT.repay); $("lfBalance").placeholder = "初期の式：" + showFx(LEDGER_DEFAULT.balance);
+  $("ledgerColBox").innerHTML = ""; (settings.ledgerCols || []).forEach(c=>addLedgerColRow({ name: c.name, formula: showFx(c.formula) })); $("ledgerErr").hidden = true;
+  const tm = termsOf(settings); ["repay","loan","balance","paid"].forEach(k=>{ const el = $("t_" + k); el.value = (settings.terms || {})[k] || ""; el.placeholder = TERM_DEFAULTS[k]; });
   $("defErr").hidden = true; renderStructure();
   $("sFrom").value = ""; $("sTo").value = ""; syncDefaultAcctSelects();
   syncSettingsRule();
@@ -1482,7 +1512,7 @@ function renderSettings(){
 function syncSettingsMode(){
   const sm = $("sMode").value === "simple";
   $("settingsForm").classList.toggle("simple", sm);
-  $("sStartLabel").textContent = sm ? "借入額（返済前の残高）" : "開始時点の貸付残高";
+  $("sStartLabel").textContent = sm ? trS({ ...settings, inputMode:"simple" }, "借入額（返済前の残高）") : "開始時点の貸付残高";
   $("sStartHint").textContent = sm ? "任意。入れると残高も表示します" : "ツールを使い始める前からの借金";
 }
 function syncSettingsRule(){
@@ -1498,23 +1528,27 @@ function applyMode(){
   const sm = isSimple();
   $("calcPanel").classList.toggle("simple", sm);
   $("matrixPanel").hidden = sm; $("howPanel").hidden = sm;
-  $("chartTitle").textContent = sm ? "残高の推移" : "貸付残高の推移";
+  $("chartTitle").textContent = sm ? tr("残高の推移") : "貸付残高の推移";
   $("chart").closest("section").hidden = !balKnown(settings);
-  $("addTransfer").textContent = sm ? "＋ 返済を追加" : "＋ 振込を追加";
-  $("trLegend").textContent = sm ? "取引（支払日・返済額・振込元・振込先）" : "振込の記録（支払日・振込元・振込先）";
+  $("addTransfer").textContent = sm ? tr("＋ 返済を追加") : "＋ 振込を追加";
+  $("trLegend").textContent = sm ? tr("取引（支払日・返済額・振込元・振込先）") : "振込の記録（支払日・振込元・振込先）";
   $("ledgerTitle").textContent = sm ? "取引台帳" : "月次台帳";
   $("saveBtn").textContent = sm ? "取引を台帳に保存" : "この月を台帳に保存";
   $("newBtn").textContent = sm ? "新しい取引を入力" : "新しい月を入力";
   $("delBtn").textContent = sm ? "この取引を削除" : "この月を削除";
   $("delConfirm").firstChild.textContent = sm ? "この取引の記録を削除します。" : "この月の記録を削除します。";
-  $("kBalance").previousElementSibling.textContent = sm ? "現在の残高" : "現在の貸付残高";
-  $("kLoan").previousElementSibling.textContent = sm ? "借入額（返済前の残高）" : "累計 貸付（補填）";
+  $("kBalance").previousElementSibling.textContent = sm ? tr("現在の残高") : "現在の貸付残高";
+  $("kLoan").previousElementSibling.textContent = sm ? tr("借入額（返済前の残高）") : "累計 貸付（補填）";
+  $("kRepayLabel").textContent = tr("累計 返済額");
+  // 計算式ページの台帳の式まわり
+  [["lfRepayLabel","返済額"],["lfBalanceLabel","残高"],["lfHint1","空欄なら初期の式を使います。累計返済額は、各取引の返済額の合計です。"],["addLedgerCol","＋ 列を追加（例：未返済の支払＝支払額 − 返済額）"]].forEach(([id,t])=>{ $(id).textContent = tr(t); });
+  $("lfHint2").innerHTML = esc(tr("使える名前：支払額（この取引で払った額）・借入額・前回残高・前回までの返済額・前回までの支払額・返済額・累計返済額・累計支払額・残高、内訳項目名・定数名、上の追加の列。")) + "<br>" + esc(tr("関数：四捨五入( )・切り捨て( )・切り上げ( )・最小( , )・最大( , )。返済額の式では、返済額・累計返済額・残高はまだ決まっていないので使えません。"));
 }
 function renderHeader(){
   applyMode();
   const p = projOf(cur);
-  $("title").textContent = p ? projLabel(p) : "返済・補填台帳";
-  document.title = p ? `${projLabel(p)}｜返済・補填台帳` : "返済・補填台帳";
+  $("title").textContent = p ? projLabel(p) : "プロジェクト";
+  document.title = p ? `${projLabel(p)}｜シャッキーーン` : "シャッキーーン";
   $("fFixed").placeholder = fmtInput(settings.defaultFixed);
   $("fixedHint").textContent = `空欄なら設定値（${yen(settings.defaultFixed)}）`;
 }
@@ -1537,7 +1571,7 @@ function renderHistory(){
   const partsText = t=>items.filter(x=>t.parts && t.parts[x.id]).map(x=>`${x.name} ${yen(t.parts[x.id])}`).join(" / ");
   const sm = isSimple();
   tb.innerHTML = `<thead><tr><th>支払日</th>${sm ? "" : '<th class="memo">対象月</th>'}<th class="memo">種類</th><th>金額</th>${items.length ? '<th class="memo">内訳</th>' : ""}<th class="memo">振込元</th><th class="memo">振込先</th><th class="memo">メモ</th></tr></thead><tbody>` +
-    list.map(t=>`<tr data-id="${esc(t.month)}" tabindex="0"><td>${fmtDate(t.date)}</td>${sm ? "" : `<td class="memo">${monthLabel(t.month)}</td>`}<td class="memo">${KINDS[t.kind] || "その他"}</td><td>${yen(t.amount)}</td>${items.length ? `<td class="memo" title="${esc(partsText(t))}">${esc(partsText(t))}</td>` : ""}<td class="memo flow">${esc(transferWho(t,"from"))}</td><td class="memo flow">→ ${esc(transferWho(t,"to"))}</td><td class="memo" title="${esc(t.memo)}">${esc(t.memo)}</td></tr>`).join("") +
+    list.map(t=>`<tr data-id="${esc(t.month)}" tabindex="0"><td>${fmtDate(t.date)}</td>${sm ? "" : `<td class="memo">${monthLabel(t.month)}</td>`}<td class="memo">${t.kind === "repay" ? tr(KINDS.repay) : KINDS[t.kind] || "その他"}</td><td>${yen(t.amount)}</td>${items.length ? `<td class="memo" title="${esc(partsText(t))}">${esc(partsText(t))}</td>` : ""}<td class="memo flow">${esc(transferWho(t,"from"))}</td><td class="memo flow">→ ${esc(transferWho(t,"to"))}</td><td class="memo" title="${esc(t.memo)}">${esc(t.memo)}</td></tr>`).join("") +
     `</tbody><tfoot><tr><td>合計</td>${sm ? "" : "<td></td>"}<td></td><td>${yen(list.reduce((a,t)=>a+t.amount,0))}</td>${items.length ? "<td></td>" : ""}<td></td><td></td><td></td></tr></tfoot>`;
 }
 
@@ -1649,14 +1683,22 @@ $("settingsForm").addEventListener("submit", async ev=>{
   ev.preventDefault();
   const s = { name:$("sName").value.trim(), title:$("sTitle").value.trim(), memo:$("sMemo").value.trim(), status:$("sStatus").value, inputMode:$("sMode").value, defaultFixed:toNum($("sFixed").value), ruleType:$("sRuleType").value,
     ruleValue:toNum($("sRuleValue").value), startBalance:toNum($("sStart").value), surplusMode:$("sSurplus").value,
-    accounts: readAccts(), defaultFrom: $("sFrom").value, defaultTo: $("sTo").value, ...readDefs(), ...readLedgerFx() };
+    accounts: readAccts(), defaultFrom: $("sFrom").value, defaultTo: $("sTo").value, ...readDefs(), ...readLedgerFx(), terms: readTerms() };
+  const termErr = Object.entries(s.terms).filter(([k,v])=>v && (/^[\d.]/.test(v) || /[+\-*/(),\[\]\s]/.test(v) || FUNCS[v])).map(([k,v])=>`言葉「${v}」には数字始まり・記号・空白を使えません。`);
   const chk = compileDefs(s, s.itemsRaw);
   $("defErr").hidden = !chk.errors.length; $("defErr").innerHTML = chk.errors.map(esc).join("<br>");
+  // 入力欄の式は今の言葉で書かれているので、言葉を変えて保存しても通るように、先に元の言葉の式へ戻しておく
+  const oldL = compileLedger({ ...s, terms: settings.terms, inputMode: settings.inputMode });
+  const canon = f=>{ try { const n = f && parseExpr(f, oldL.names, oldL.alias); return n ? exprText(n, x=>x) : f; } catch(_){ return f; } };
+  s.ledgerFx = { repay: canon(s.ledgerFx.repay), balance: canon(s.ledgerFx.balance) };
+  s.ledgerCols = s.ledgerCols.map(c=>({ name: c.name, formula: canon(c.formula) }));
   const lchk = compileLedger(s);
   $("ledgerErr").hidden = !lchk.errors.length; $("ledgerErr").innerHTML = lchk.errors.map(esc).join("<br>");
+  $("termErr").hidden = !termErr.length; $("termErr").textContent = termErr.join(" ");
+  if (termErr.length){ flash("sToast","表示する言葉を確認してください。"); return; }
   if (chk.errors.length || lchk.errors.length){ flash("sToast","計算式を確認してください。"); return; }
   // 台帳の式は、項目名どおりの表記にそろえて保存する
-  const tidy = f=>{ try { const n = f && parseExpr(f, [...LEDGER_VARS, ...chk.items.map(x=>x.name), ...chk.consts.map(x=>x.name), ...s.ledgerCols.map(x=>x.name)]); return n ? exprText(n, x=>x) : ""; } catch(_){ return f; } };
+  const tidy = f=>{ try { const n = f && parseExpr(f, lchk.names, lchk.alias); return n ? exprText(n, x=>x) : ""; } catch(_){ return f; } };
   s.ledgerFx = { repay: tidy(s.ledgerFx.repay), balance: tidy(s.ledgerFx.balance) };
   s.ledgerCols = s.ledgerCols.map(c=>({ name: c.name, formula: tidy(c.formula) }));
   // 大きい順に並べ替え、式は記号ではなく項目名で保存する（並びが変わっても式が崩れないように）
@@ -1801,7 +1843,7 @@ if (!inClaude){
   $("csvBtn").addEventListener("click", ()=>{
     const blob = new Blob(["\uFEFF" + csvText()], { type:"text/csv" });
     const a = document.createElement("a"); a.href = URL.createObjectURL(blob);
-    a.download = `返済台帳_${(projOf(cur) ? projLabel(projOf(cur)) + "_" : "")}${new Date().toISOString().slice(0,10)}.csv`; a.click();
+    a.download = `シャッキーーン_${(projOf(cur) ? projLabel(projOf(cur)) + "_" : "")}${new Date().toISOString().slice(0,10)}.csv`; a.click();
     setTimeout(()=>URL.revokeObjectURL(a.href), 1000);
   });
 }
@@ -1813,7 +1855,7 @@ if (!inClaude){
   if (downloads){
     $("csvBtn").hidden = false;
     $("csvBtn").addEventListener("click", async ()=>{
-      try { await downloads.save({ filename:`返済台帳_${(projOf(cur) ? projLabel(projOf(cur)) + "_" : "")}${new Date().toISOString().slice(0,10)}.csv`, data:"\uFEFF"+csvText() }); }
+      try { await downloads.save({ filename:`シャッキーーン_${(projOf(cur) ? projLabel(projOf(cur)) + "_" : "")}${new Date().toISOString().slice(0,10)}.csv`, data:"\uFEFF"+csvText() }); }
       catch(err){ if (err && err.code === "unavailable") $("csvBtn").hidden = true; }
     });
   }
