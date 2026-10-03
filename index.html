@@ -179,13 +179,6 @@ details summary{cursor:pointer;font-family:var(--font-display);font-weight:700;f
     </form>
   </section>
 
-  <section class="kpis dv" aria-label="全体の状況">
-    <div class="kpi main"><span>貸付残高の合計</span><b id="dBalance">0円</b></div>
-    <div class="kpi"><span>進行中のプロジェクト</span><b id="dActive">0件</b></div>
-    <div class="kpi"><span id="dTodoLabel">今月が未入力</span><b id="dTodo">0件</b></div>
-    <div class="kpi"><span>累計 返済の合計</span><b id="dRepay">0円</b></div>
-  </section>
-
   <section class="panel dv" id="dashPanel">
     <div class="sectionhead">
       <h2>プロジェクト</h2>
@@ -221,10 +214,10 @@ details summary{cursor:pointer;font-family:var(--font-display);font-weight:700;f
   <div class="note" id="importBox" hidden>このブラウザに以前の記録が残っています。<button type="button" class="link" id="importBtn">クラウドに取り込む</button></div>
 
   <section class="kpis pv" aria-label="現在の状況">
+    <div class="kpi"><span>累計 返済額</span><b id="kRepay" class="down">0円</b></div>
+    <div class="kpi"><span id="kLastLabel">直近月の返済額</span><b id="kLast">0円</b></div>
     <div class="kpi main"><span>現在の貸付残高</span><b id="kBalance">0円</b></div>
     <div class="kpi"><span>累計 貸付（補填）</span><b id="kLoan">0円</b></div>
-    <div class="kpi"><span>累計 返済</span><b id="kRepay">0円</b></div>
-    <div class="kpi"><span>累計 本人報酬</span><b id="kReward">0円</b></div>
   </section>
 
   <section class="panel pv">
@@ -567,26 +560,21 @@ function projSummary(p){
   const rows = buildLedger(ms, s);
   const sum = k => rows.reduce((a,x)=>a+x.r[k],0);
   return { p, count: rows.length, last: rows.length ? rows[rows.length-1].e.month : "", balance: rows.length ? rows[rows.length-1].r.end : toNum(s.startBalance),
-    repay: sum("repayTotal"), fixed: toNum(s.defaultFixed), hasNow: ms.some(m=>m.month===ymNow()), done: p.status === "done" };
+    repay: sum("repayTotal"), lastRepay: rows.length ? rows[rows.length-1].r.repayTotal : 0, hasNow: ms.some(m=>m.month===ymNow()), done: p.status === "done" };
 }
 function renderDash(){
   const all = meta.projects.map(projSummary).sort((a,b)=>(a.done-b.done) || (b.p.createdAt||0)-(a.p.createdAt||0));
   const active = all.filter(x=>!x.done);
   const shown = $("showDone").checked ? all : active;
-  $("dBalance").textContent = yen(all.reduce((a,x)=>a+x.balance,0));
-  $("dActive").textContent = `${active.length}件`;
-  $("dTodoLabel").textContent = `${monthLabel(ymNow())}が未入力`;
-  $("dTodo").textContent = `${active.filter(x=>!x.hasNow).length}件`;
-  $("dRepay").textContent = yen(all.reduce((a,x)=>a+x.repay,0));
   $("projEmpty").hidden = all.length > 0;
   $("projWrap").hidden = all.length === 0;
-  $("projTable").innerHTML = `<thead><tr><th>誰の・何の</th><th>状態</th><th>今月</th><th>毎月の固定額</th><th>記録</th><th>最終入力月</th><th>貸付残高</th><th>累計返済</th></tr></thead><tbody>` +
+  $("projTable").innerHTML = `<thead><tr><th>誰の・何の</th><th>状態</th><th>今月</th><th>直近月</th><th>その月の返済額</th><th>累計返済額</th><th>記録した月数</th><th>貸付残高</th></tr></thead><tbody>` +
     (shown.length ? shown.map(x=>`<tr data-pid="${esc(x.p.id)}" tabindex="0" class="${x.done?"done":""}">
       <td class="who"><b>${esc(x.p.name || "（対象者未設定）")}</b><span>${esc(x.p.title || "内容未設定")}${x.p.memo ? "・" + esc(x.p.memo) : ""}</span></td>
       <td>${x.done ? '<span class="tag off">完了</span>' : '<span class="tag ok">進行中</span>'}</td>
       <td>${x.done ? "—" : x.hasNow ? '<span class="tag ok">入力済み</span>' : '<span class="tag todo">未入力</span>'}</td>
-      <td>${yen(x.fixed)}</td><td>${x.count}か月</td><td>${x.last ? monthLabel(x.last) : "—"}</td>
-      <td class="bal up">${yen(x.balance)}</td><td class="down">${yen(x.repay)}</td></tr>`).join("")
+      <td>${x.last ? monthLabel(x.last) : "—"}</td><td class="down">${x.last ? yen(x.lastRepay) : "—"}</td>
+      <td class="bal down">${yen(x.repay)}</td><td>${x.count}か月</td><td class="up">${yen(x.balance)}</td></tr>`).join("")
       : `<tr><td colspan="8" class="empty">進行中のプロジェクトはありません。「完了も表示」で完了したものを確認できます。</td></tr>`) + "</tbody>";
   const sw = $("projSwitch");
   sw.innerHTML = all.map(x=>`<option value="${esc(x.p.id)}">${esc(projLabel(x.p))}${x.done?"（完了）":""}</option>`).join("");
@@ -868,18 +856,21 @@ function renderLedger(){
   $("kBalance").textContent = yen(bal);
   $("kLoan").textContent = yen(sum("loan"));
   $("kRepay").textContent = yen(sum("repayTotal"));
-  $("kReward").textContent = yen(sum("net"));
+  const lastRow = rows[rows.length-1];
+  $("kLastLabel").textContent = lastRow ? `${monthLabel(lastRow.e.month)}の返済額` : "直近月の返済額";
+  $("kLast").textContent = yen(lastRow ? lastRow.r.repayTotal : 0);
 
   const tb = $("ledger");
   if (!rows.length){
-    tb.innerHTML = `<tbody><tr><td class="empty" colspan="11">まだ記録がありません。上の「今月の計算」で月と報酬額を入れて「この月を台帳に保存」を押すと、ここに1行ずつ溜まっていきます。</td></tr></tbody>`;
+    tb.innerHTML = `<tbody><tr><td class="empty" colspan="13">まだ記録がありません。上の「今月の計算」で月と報酬額を入れて「この月を台帳に保存」を押すと、ここに1行ずつ溜まっていきます。</td></tr></tbody>`;
     return;
   }
-  const head = `<thead><tr><th>月</th><th>固定額</th><th>報酬</th><th>返済充当</th><th>本人報酬</th><th>貸付（補填）</th><th>先払い</th><th>月末振込</th><th>追加返済</th><th>残高</th><th class="memo">メモ</th></tr></thead>`;
-  const body = rows.map(({e,r})=>`<tr data-id="${esc(e.month)}" class="${e.month===editingId?"editing":""}" tabindex="0">
-    <td>${monthLabel(e.month)}</td><td>${yen(r.F)}</td><td>${yen(r.R)}</td><td class="down">${yen(r.repay+r.extraAuto)}</td><td>${yen(r.net)}</td>
-    <td class="up">${yen(r.loan)}</td><td>${r.P?yen(r.P):"—"}</td><td>${yen(r.monthEnd)}</td><td>${r.M?yen(r.M):"—"}</td><td class="bal">${yen(r.end)}</td><td class="memo" title="${esc(e.memo)}">${esc(e.memo)}</td></tr>`).join("");
-  const foot = `<tfoot><tr><td>合計</td><td>${yen(sum("F"))}</td><td>${yen(sum("R"))}</td><td>${yen(rows.reduce((a,x)=>a+x.r.repay+x.r.extraAuto,0))}</td><td>${yen(sum("net"))}</td><td>${yen(sum("loan"))}</td><td>${yen(sum("P"))}</td><td>${yen(sum("monthEnd"))}</td><td>${yen(sum("M"))}</td><td>${yen(bal)}</td><td></td></tr></tfoot>`;
+  const head = `<thead><tr><th>月</th><th>その月の返済額</th><th>累計返済額</th><th>固定額</th><th>報酬</th><th>返済充当</th><th>本人報酬</th><th>貸付（補填）</th><th>先払い</th><th>月末振込</th><th>追加返済</th><th>残高</th><th class="memo">メモ</th></tr></thead>`;
+  let cum = 0;
+  const body = rows.map(({e,r})=>{ cum += r.repayTotal; return `<tr data-id="${esc(e.month)}" class="${e.month===editingId?"editing":""}" tabindex="0">
+    <td>${monthLabel(e.month)}</td><td class="down">${yen(r.repayTotal)}</td><td class="bal down">${yen(cum)}</td><td>${yen(r.F)}</td><td>${yen(r.R)}</td><td class="down">${yen(r.repay+r.extraAuto)}</td><td>${yen(r.net)}</td>
+    <td class="up">${yen(r.loan)}</td><td>${r.P?yen(r.P):"—"}</td><td>${yen(r.monthEnd)}</td><td>${r.M?yen(r.M):"—"}</td><td class="bal">${yen(r.end)}</td><td class="memo" title="${esc(e.memo)}">${esc(e.memo)}</td></tr>`; }).join("");
+  const foot = `<tfoot><tr><td>合計</td><td>${yen(sum("repayTotal"))}</td><td>${yen(sum("repayTotal"))}</td><td>${yen(sum("F"))}</td><td>${yen(sum("R"))}</td><td>${yen(rows.reduce((a,x)=>a+x.r.repay+x.r.extraAuto,0))}</td><td>${yen(sum("net"))}</td><td>${yen(sum("loan"))}</td><td>${yen(sum("P"))}</td><td>${yen(sum("monthEnd"))}</td><td>${yen(sum("M"))}</td><td>${yen(bal)}</td><td></td></tr></tfoot>`;
   tb.innerHTML = head + `<tbody>${body}</tbody>` + foot;
 }
 function openRow(id){
