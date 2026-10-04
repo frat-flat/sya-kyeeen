@@ -2250,11 +2250,12 @@ $("fxExpanded").addEventListener("click", e=>{ const b = e.target.closest(".xd")
       use = LEDGER_VARS.filter(v=>!/^直近の取引の|^各取引の/.test(v)).concat(cols.slice(0, me).map(r=>r.querySelector("input").value.trim()).filter(Boolean)); }
     const o = { "": [...items, ...PLAIN.filter(n=>use.includes(n)).map(lv), ...consts, ...use.filter(n=>!LEDGER_VARS.includes(n)).map(n=>({ v:n, t:n }))] };
     const LT = ledgerLetters(rows.length, $("ledgerColBox").querySelectorAll(".def").length);
-    const sigma = n=>{ const k = Object.keys(SUM_TX).find(k=>SUM_TX[k] === n); return k ? `${tr(n)}（＝ ${LT[k]}「${tr(LFX.find(f=>f.key===k).label)}」の全取引分の合計）` : tr(n); };
-    GROUPS.slice(1).forEach(g=>{ const l = g.names.filter(n=>use.includes(n)); if (l.length) o[g.p] = l.map(n=>({ v: tr(n), t: sigma(n) })); });
+    const SUM_TX_KEY = n=>Object.values(SUM_TX).includes(n);
+    const sigma = n=>{ const k = Object.keys(SUM_TX).find(k=>SUM_TX[k] === n); return k ? `${LT[k]}　${tr(LFX.find(f=>f.key===k).label)}` : tr(n); };
+    GROUPS.slice(1).forEach(g=>{ const l = g.names.filter(n=>use.includes(n)); if (l.length) o[g.p] = l.map(n=>({ v: tr(n), t: SUM_TX_KEY(n) ? sigma(n) : n.startsWith(g.p) ? tr(n.slice(g.p.length)) : n === "前回残高" ? tr("残高") : tr(n) })); });
     if (o["各取引の"]){
-      const extra = d.itemsRaw.map((x,i)=>x.name ? { v: sigmaOf(x.name), t: `${sigmaOf(x.name)}（＝ ${letterOf(i)}「${x.name}」の全取引分の合計）` } : null).filter(Boolean);
-      extra.push({ v: sigmaOf("支払額"), t: `${sigmaOf(tr("支払額"))}（＝ ${LT.paid}「${tr("支払額")}」の全取引分の合計）` });
+      const extra = d.itemsRaw.map((x,i)=>x.name ? { v: sigmaOf(x.name), t: `${letterOf(i)}　${x.name}` } : null).filter(Boolean);
+      extra.push({ v: sigmaOf("支払額"), t: `${LT.paid}　${tr("支払額")}` });
       o["各取引の"] = [...o["各取引の"], ...extra];
     }
     return o;
