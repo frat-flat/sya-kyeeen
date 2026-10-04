@@ -1417,6 +1417,8 @@ function buildParts(row, t){
   box.hidden = !c.items.length;
   amt.readOnly = c.amountAuto;
   amt.title = c.amountAuto ? "いちばん大きい項目の合計で自動計算" : "";
+  // 内訳から自動で決まる金額は見ても意味がないので出さない（値は内部で計算して保存する）
+  amt.closest(".field").hidden = !!(c.items.length && c.amountAuto);
   if (!c.items.length){ box.innerHTML = ""; return; }
   const parts = t.parts || {};
   box.innerHTML = `<div class="ptitle">内訳</div>` + c.items.map(x=>{
