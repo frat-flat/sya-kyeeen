@@ -2230,7 +2230,7 @@ $("fxExpanded").addEventListener("click", e=>{ const b = e.target.closest(".xd")
     else { const cols = [...$("ledgerColBox").querySelectorAll(".def")], me = cols.indexOf(el.closest(".def"));
       use = LEDGER_VARS.filter(v=>!/^直近の取引の|^各取引の/.test(v)).concat(cols.slice(0, me).map(r=>r.querySelector("input").value.trim()).filter(Boolean)); }
     const o = { "": [...items, ...PLAIN.filter(n=>use.includes(n)).map(lv), ...consts, ...use.filter(n=>!LEDGER_VARS.includes(n)).map(n=>({ v:n, t:n }))] };
-    GROUPS.slice(1).forEach(g=>{ const l = g.names.filter(n=>use.includes(n)); if (l.length) o[g.p] = l.map(n=>{ const x = lv(n); return { v:x.v, t: n.startsWith(g.p) ? "…" + tr(n.slice(g.p.length)) : x.t }; }); });
+    GROUPS.slice(1).forEach(g=>{ const l = g.names.filter(n=>use.includes(n)); if (l.length) o[g.p] = l.map(lv); });
     return o;
   }
   const fillNames = ()=>{ const l = (opts && opts[pp.value]) || []; pn.innerHTML = l.map(x=>`<option value="${esc(x.v)}">${esc(x.t)}</option>`).join(""); };
