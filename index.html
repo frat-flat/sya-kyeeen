@@ -2223,7 +2223,7 @@ $("fxExpanded").addEventListener("click", e=>{ const b = e.target.closest(".xd")
   ];
   const PLAIN = ["支払額","件数","開始時点の借入額","合計借入額","合計返済額","残高","今回の借入額","返済額","累計返済額","累計支払額"];
   const box = document.createElement("div"); box.id = "fxPick"; box.hidden = true;
-  box.innerHTML = '<span class="pl">選んで入れる：</span><select class="pp" aria-label="接頭語"></select><select class="pn" aria-label="項目"></select><button type="button" class="pi">入れる</button>';
+  box.innerHTML = '<span class="pl">選んで入れる：</span><select class="po" aria-label="足すか引くか"><option value="+">＋ 足す</option><option value="-">− 引く</option><option value="*">× 掛ける</option><option value="/">÷ 割る</option></select><select class="pp" aria-label="接頭語"></select><select class="pn" aria-label="項目"></select><button type="button" class="pi">入れる</button>';
   document.body.appendChild(box);
   const pp = box.querySelector(".pp"), pn = box.querySelector(".pn");
   let target = null, caret = null, opts = null;
@@ -2270,9 +2270,12 @@ $("fxExpanded").addEventListener("click", e=>{ const b = e.target.closest(".xd")
     if (!target || !pn.value) return;
     const v = target.value, [a, b] = caret || [v.length, v.length];
     const before = v.slice(0, a), after = v.slice(b);
-    const sep = before && !/[\s(（+\-*/×÷−,、]$/.test(before) ? " + " : "";
-    const ins = sep + pn.value;
-    target.value = before + ins + after; const pos = (before + ins).length;
+    // 選んだ記号（＋−×÷）でつなぐ。式の先頭やかっこの直後なら記号なし（−だけは付ける）、すでに記号で終わっていればそのまま
+    const op = box.querySelector(".po").value, sym = { "+":"+", "-":"−", "*":"×", "/":"÷" }[op];
+    const tail = before.replace(/\s+$/, "");
+    const head = !tail || /[(（,、]$/.test(tail) ? tail + (op === "-" ? "−" : "")
+      : /[+\-*/×÷−]$/.test(tail) ? tail + " " : `${tail} ${sym} `;
+    target.value = head + pn.value + after; const pos = (head + pn.value).length;
     target.dispatchEvent(new Event("input", { bubbles:true })); target.dispatchEvent(new Event("change", { bubbles:true }));
     target.focus(); target.setSelectionRange(pos, pos); caret = [pos, pos];
   });
