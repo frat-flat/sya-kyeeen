@@ -767,9 +767,19 @@ function allocate(total, weights){
   return fl;
 }
 
+/* 保存済みの取引の内訳は、いまの計算式で計算し直す（式を変えたあとも、手入力の値から式どおりの数字になるように） */
+function liveTransfer(t, c){
+  if (!c || c.errors.length || !c.items.length || !t.parts) return t;
+  const res = computePayment(c, t.parts, t.amount);
+  return { ...t, parts: { ...t.parts, ...res.parts } };
+}
+function liveEntry(e, s){
+  if (s.inputMode !== "simple" || !(e.transfers || []).length) return e;
+  const c = ledgerFx(s).defs; return { ...e, transfers: e.transfers.map(t=>liveTransfer(t, c)) };
+}
 function buildLedger(months, s){
   let bal = toNum(s.startBalance), st = null;
-  return months.slice().sort((a,b)=>a.month.localeCompare(b.month)).map(e=>{
+  return months.slice().sort((a,b)=>a.month.localeCompare(b.month)).map(e=>liveEntry(e, s)).map(e=>{
     const r = calcMonth(e, s, bal, st); bal = r.end; st = r.state || null; return { e, r };
   });
 }
@@ -2038,7 +2048,7 @@ function renderAll(){
 /* ---------- 振込履歴 ---------- */
 function allTransfers(){
   const list = [];
-  months.forEach(m=>(m.transfers || []).forEach(t=>list.push({ ...t, month: m.month })));
+  months.forEach(m=>(liveEntry(m, settings).transfers || []).forEach(t=>list.push({ ...t, month: m.month })));
   return list.sort((a,b)=>(b.date || b.month).localeCompare(a.date || a.month));
 }
 function fmtDate(d){ if (!d) return "日付なし"; const [y,m,dd] = d.split("-"); return `${y}/${Number(m)}/${Number(dd)}`; }
