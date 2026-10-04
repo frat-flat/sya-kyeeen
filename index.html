@@ -84,7 +84,18 @@ h2{font-size:1.15rem;font-weight:700}
 .tn .sg.p{background:#2f8a5b}.tn .sg.m{background:#c0503a}
 .tn .tg{font-size:.74rem;color:var(--muted,#888)}
 @media (max-width:600px){.fxexp .xr{grid-template-columns:auto minmax(0,1fr) auto}.fxexp .xd{grid-column:3}.fxexp .xe{grid-row:2;grid-column:1/-1}.fxexp .xs{grid-column:1/-1}}
-#settingsForm[data-ftab="all"] #ledgerFxSet{margin-top:18px}
+.fxcols{display:contents}
+#settingsForm[data-page="formulas"][data-ftab="all"] .fxcols{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,360px),1fr));gap:20px 28px;align-items:start}
+#settingsForm[data-page="formulas"][data-ftab="all"] .fxcols>*{min-width:0}
+@media (min-width:641px){
+#settingsForm[data-page="formulas"][data-ftab="all"] .fxcols .defhead:not(.const){display:none}
+#settingsForm[data-page="formulas"][data-ftab="all"] .fxcols .def:not(.const):not(.lcol){grid-template-columns:3.2em minmax(0,1fr) auto;row-gap:4px}
+#settingsForm[data-page="formulas"][data-ftab="all"] .fxcols .def:not(.const):not(.lcol)>input.f{grid-column:2/-1}
+#settingsForm[data-page="formulas"][data-ftab="all"] .fxcols .def:not(.const):not(.lcol)>input.n{border-color:transparent;background:transparent;padding-left:0}
+#settingsForm[data-page="formulas"][data-ftab="all"] .fxcols .lfx{grid-template-columns:minmax(0,1fr);gap:4px}
+}
+body:has(#settingsForm[data-page="formulas"][data-ftab="all"]) .wrap{max-width:1640px}
+#settingsForm[data-page="formulas"][data-ftab="all"] #fxAllSet{margin-top:10px}
 .ledger .act{width:1%;padding-left:6px;padding-right:2px}
 .rowedit{padding:3px 10px;font-size:.8rem;white-space:nowrap}
 .ledger tr.editing .rowedit{background:var(--accent);color:#fff;border-color:var(--accent)}
@@ -516,7 +527,7 @@ details summary{cursor:pointer;font-family:var(--font-display);font-weight:700;f
 
   <section class="panel pv sv" id="settingsPanel">
       <div class="sectionhead"><h2 id="setTitle">基本情報</h2><span class="muted small" id="setNote"></span></div>
-      <form class="form" id="settingsForm" data-page="basic" data-ftab="tx" autocomplete="off">
+      <form class="form" id="settingsForm" data-page="basic" data-ftab="all" autocomplete="off">
         <div class="spage" data-pages="basic" style="display:grid;gap:14px">
         <div class="row">
           <div class="field"><label for="sName">誰の（対象者）</label><input id="sName" maxlength="40" placeholder="例：山田さん"></div>
@@ -552,7 +563,8 @@ details summary{cursor:pointer;font-family:var(--font-display);font-weight:700;f
           <div class="field calc-only"><label for="sSurplus">報酬が固定額を上回った月</label><select id="sSurplus"><option value="pay">上回った分も全額支払う</option><option value="repay">上回った分を追加返済に回す</option></select></div>
         </div>
         </div>
-        <div class="tabs spage" data-pages="formulas" id="lfTabs" role="tablist"><button type="button" role="tab" data-lt="tx" aria-selected="true">各取引</button><button type="button" role="tab" data-lt="sum" aria-selected="false">合計</button><button type="button" role="tab" data-lt="all" aria-selected="false">総合</button></div>
+        <div class="tabs spage" data-pages="formulas" id="lfTabs" role="tablist"><button type="button" role="tab" data-lt="all" aria-selected="true">総合</button><button type="button" role="tab" data-lt="tx" aria-selected="false">各取引</button><button type="button" role="tab" data-lt="sum" aria-selected="false">合計</button></div>
+        <div class="fxcols">
         <div class="spage" data-pages="items formulas" id="defsSet" style="display:grid;gap:12px">
           <div class="ftab-all">各取引の内訳</div>
           <span class="hint spage" data-pages="items">1回の支払いを分ける項目（例：送金額、固定報酬額）と、その項目が指すものを登録します。項目どうしの計算は「計算式」ページで設定します。</span>
@@ -600,6 +612,7 @@ details summary{cursor:pointer;font-family:var(--font-display);font-weight:700;f
             <span class="hint">空欄なら初期の式を使います。式の下の数値は、保存してある式と取引で計算した結果です（保存すると更新されます）。<br>関数：四捨五入( )・切り捨て( )・切り上げ( )・最小( , )・最大( , )。<br><span id="lfLetterHint"></span></span>
           </div>
           <div class="ferr" id="ledgerErr" hidden></div>
+        </div>
         </div>
         <div class="spage" data-pages="formulas" id="fxAllSet" style="display:grid;gap:8px">
           <div class="ftab-all">まとめた式</div>
