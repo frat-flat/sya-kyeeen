@@ -2260,6 +2260,7 @@ $("fxExpanded").addEventListener("click", e=>{ const b = e.target.closest(".xd")
     const el = e.target; if (!(el instanceof HTMLInputElement) || el.readOnly) { box.hidden = true; target = null; return; }
     const o = allowed(el); if (!o){ box.hidden = true; target = null; return; }
     target = el; opts = o; caret = null;
+    box.querySelector(".po").value = "+";
     pp.innerHTML = GROUPS.filter(g=>o[g.p] && o[g.p].length).map(g=>`<option value="${esc(g.p)}">${esc(g.p ? tr(g.label) : g.label)}</option>`).join("");
     fillNames(); box.hidden = false; place();
   });
