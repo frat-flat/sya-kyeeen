@@ -317,6 +317,9 @@ body:not(.v-ledger) .lv,body.v-ledger .sv{display:none!important}
 .tag.todo{background:var(--warn-bg);color:var(--warn-ink)}
 .tag.off{background:var(--soft);color:var(--muted);border:1px solid var(--line)}
 body.locked #authPanel{display:grid}
+#authWait{display:none;text-align:center;padding:40px 16px;color:var(--muted)}
+body.checking #authForm{display:none}
+body.checking #authWait{display:block}
 .auth{max-width:420px;width:100%;margin:0 auto;gap:14px}
 .who{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;justify-content:flex-end}
 .empty{padding:28px 16px;text-align:center;color:var(--muted)}
@@ -380,6 +383,7 @@ details summary{cursor:pointer;font-family:var(--font-display);font-weight:700;f
   </header>
 
   <section class="panel" id="authPanel">
+    <div id="authWait" role="status"><p id="authWaitMsg" style="margin:0">ログイン状態を確認しています…</p><button type="button" id="authRetry" hidden style="margin-top:12px">再読み込み</button></div>
     <form class="form auth" id="authForm" autocomplete="on">
       <h2>ログイン</h2>
       <p class="muted small" style="margin:0">台帳はログインしたアカウントだけが読み書きできます。</p>
@@ -2403,6 +2407,7 @@ async function loadFromApi(){
   $("importBox").hidden = !(allMonths.length === 0 && localSnapshot.months.length > 0);
 }
 async function onSession(session){
+  document.body.classList.remove("checking");
   if (!session){
     store = { mode:"api", auth: store.auth, uid: null };
     document.body.classList.add("locked");
@@ -2428,15 +2433,15 @@ function authError(m){
 }
 async function startCloud(){
   let cfg;
-  try { const r = await fetch("/api/config", { cache:"no-store" }); if (!r.ok) return; cfg = await r.json(); } catch(_){ return; }
+  try { const r = await fetch("/api/config", { cache:"no-store" }); if (!r.ok) return; cfg = await r.json(); } catch(_){ return "offline"; }
   if (!cfg || !cfg.authUrl || !/^[a-z]+$/.test(cfg.authProvider || "")) return;
   let auth;
   try { auth = await (await import(`./auth/${cfg.authProvider}.js`)).create(cfg); }
-  catch(_){ $("storeBadge").textContent = "ログインの準備ができませんでした。再読み込みしてください"; return; }
+  catch(_){ $("storeBadge").textContent = "ログインの準備ができませんでした。再読み込みしてください"; return "offline"; }
   store = { mode:"api", auth, uid: null };
   document.body.classList.add("locked");
   auth.onChange(onSession);
-  auth.getSession().then(onSession);
+  auth.getSession().then(onSession, ()=>{ $("authWaitMsg").textContent = "ログイン状態を確認できませんでした。通信を確かめて再読み込みしてください。"; $("authRetry").hidden = false; });
   $("authForm").addEventListener("submit", async ev=>{
     ev.preventDefault(); $("loginBtn").disabled = true;
     const error = await auth.signIn($("authEmail").value.trim(), $("authPass").value);
@@ -2461,8 +2466,15 @@ async function startCloud(){
   });
 }
 if (!inClaude && location.protocol !== "file:"){
-  document.body.classList.add("locked"); $("storeBadge").textContent = "接続中…";
-  startCloud().finally(()=>{ if (store.mode !== "api"){ document.body.classList.remove("locked"); $("storeBadge").textContent = "このブラウザに保存"; } });
+  // ログイン状態がわかるまではログイン画面ではなく「確認中」を出す（ログイン済みなら、そのまま台帳が開く）
+  document.body.classList.add("locked", "checking"); $("storeBadge").textContent = "接続中…";
+  $("authRetry").addEventListener("click", ()=>location.reload());
+  startCloud().then(res=>{
+    if (store.mode === "api") return;
+    // 公開サイトで接続できないときは、この端末だけの保存に切り替えず止める（ログインせずに入れてしまうのを防ぐ）
+    if (res === "offline"){ $("authWaitMsg").textContent = "サーバーに接続できませんでした。通信を確かめて再読み込みしてください。"; $("authRetry").hidden = false; $("storeBadge").textContent = "接続できません"; return; }
+    document.body.classList.remove("locked", "checking"); $("storeBadge").textContent = "このブラウザに保存";
+  });
 }
 if (!inClaude){
   $("csvBtn").hidden = false;
