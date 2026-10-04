@@ -65,6 +65,10 @@ h2{font-size:1.15rem;font-weight:700}
 .ltk{display:inline-grid;place-items:center;min-width:1.7em;height:1.7em;margin:0 1px;padding:0 3px;border-radius:5px;background:var(--soft);border:1px solid var(--line);font:inherit;font-size:.78rem;font-weight:700;color:var(--accent);cursor:help;vertical-align:baseline}
 .ltk:hover,.ltk:focus-visible,.ltk.on{background:var(--accent);color:#fff;outline:none}
 .ltn{font-size:.85em;color:var(--muted,#777)}
+#fxPick{position:absolute;z-index:40;display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:6px 8px;border:1px solid var(--line);border-radius:10px;background:var(--card,#fff);box-shadow:0 4px 16px rgba(0,0,0,.12);font-size:.82rem;max-width:calc(100vw - 24px)}
+#fxPick select{width:auto;height:2rem;padding:0 6px;font-size:.82rem}
+#fxPick button{padding:4px 10px;font-size:.82rem}
+#fxPick .pl{color:var(--muted)}
 #ltTip{position:fixed;z-index:60;max-width:min(420px,calc(100vw - 24px));padding:9px 12px;border-radius:10px;background:#1f2a26;color:#fff;font-size:.84rem;line-height:1.6;box-shadow:0 6px 24px rgba(0,0,0,.25);pointer-events:none}
 #ltTip .tf{margin-top:4px;padding-top:4px;border-top:1px solid rgba(255,255,255,.2);color:#cfe}
 #ltTip .ltk{background:rgba(255,255,255,.15);border-color:rgba(255,255,255,.3);color:#fff}
@@ -2196,6 +2200,64 @@ $("fxExpanded").addEventListener("click", e=>{ const b = e.target.closest(".xd")
   document.addEventListener("focusout", e=>{ if (e.target.closest(".ltk")) hide(); });
   document.addEventListener("click", e=>{ const b = e.target.closest(".ltk"); if (b){ e.preventDefault(); show(b); } else hide(); });
   addEventListener("scroll", ()=>{ if (Date.now() - shownAt > 400) hide(); }, true);
+})();
+/* 式の欄の選択入力：接頭語（各取引の・前回までの・直近の取引の）と項目を選んで、カーソル位置に入れる */
+(()=>{
+  const GROUPS = [
+    { p:"", label:"（接頭語なし）" },
+    { p:"各取引の", label:"各取引の", names:["各取引の借入額の合計","各取引の返済額の合計"] },
+    { p:"前回までの", label:"前回までの", names:["前回までの合計借入額","前回までの合計返済額","前回残高","前回までの返済額","前回までの支払額"] },
+    { p:"直近の取引の", label:"直近の取引の", names:["直近の取引の返済額","直近の取引の借入額"] },
+  ];
+  const PLAIN = ["支払額","件数","開始時点の借入額","合計借入額","合計返済額","残高","今回の借入額","返済額","累計返済額","累計支払額"];
+  const box = document.createElement("div"); box.id = "fxPick"; box.hidden = true;
+  box.innerHTML = '<span class="pl">選んで入れる：</span><select class="pp" aria-label="接頭語"></select><select class="pn" aria-label="項目"></select><button type="button" class="pi">入れる</button>';
+  document.body.appendChild(box);
+  const pp = box.querySelector(".pp"), pn = box.querySelector(".pn");
+  let target = null, caret = null, opts = null;
+  const kindOf = el=>el.id === "lfStart" ? { k:"start" } : el.id.startsWith("lf_") ? { k:"lfx", key: el.id.slice(3) }
+    : el.closest("#ledgerColBox") && el.id.startsWith("lcFx") ? { k:"col" } : el.closest("#itemDefBox") && el.classList.contains("f") ? { k:"item" } : null;
+  function allowed(el){
+    const kd = kindOf(el); if (!kd) return null;
+    const d = readDefs(), rows = [...$("itemDefBox").querySelectorAll(".def")];
+    const items = d.itemsRaw.map((x,i)=>({ v:x.name, t:`${letterOf(i)}　${x.name}` })).filter(x=>x.v);
+    const consts = d.consts.map(x=>({ v:x.name, t:`${x.name}（定数）` }));
+    const lv = n=>({ v: tr(n), t: tr(n) });
+    if (kd.k === "item"){ const own = el.closest(".def").querySelector("input.n").value.trim(); return { "": [...items.filter(x=>x.v !== own), lv("支払額"), ...consts] }; }
+    if (kd.k === "start") return { "": consts };
+    let use;
+    if (kd.k === "lfx"){ const f = LFX.find(x=>x.key === kd.key); use = f ? f.use : []; }
+    else { const cols = [...$("ledgerColBox").querySelectorAll(".def")], me = cols.indexOf(el.closest(".def"));
+      use = LEDGER_VARS.filter(v=>!/^直近の取引の|^各取引の/.test(v)).concat(cols.slice(0, me).map(r=>r.querySelector("input").value.trim()).filter(Boolean)); }
+    const o = { "": [...items, ...PLAIN.filter(n=>use.includes(n)).map(lv), ...consts, ...use.filter(n=>!LEDGER_VARS.includes(n)).map(n=>({ v:n, t:n }))] };
+    GROUPS.slice(1).forEach(g=>{ const l = g.names.filter(n=>use.includes(n)); if (l.length) o[g.p] = l.map(n=>{ const x = lv(n); return { v:x.v, t: n.startsWith(g.p) ? "…" + tr(n.slice(g.p.length)) : x.t }; }); });
+    return o;
+  }
+  const fillNames = ()=>{ const l = (opts && opts[pp.value]) || []; pn.innerHTML = l.map(x=>`<option value="${esc(x.v)}">${esc(x.t)}</option>`).join(""); };
+  const place = ()=>{ if (!target) return; const r = target.getBoundingClientRect();
+    box.style.top = (r.bottom + scrollY + 4) + "px"; box.style.left = Math.max(8, Math.min(r.left + scrollX, scrollX + innerWidth - box.offsetWidth - 8)) + "px"; };
+  document.addEventListener("focusin", e=>{
+    if (box.contains(e.target)) return;
+    const el = e.target; if (!(el instanceof HTMLInputElement) || el.readOnly) { box.hidden = true; target = null; return; }
+    const o = allowed(el); if (!o){ box.hidden = true; target = null; return; }
+    target = el; opts = o; caret = null;
+    pp.innerHTML = GROUPS.filter(g=>o[g.p] && o[g.p].length).map(g=>`<option value="${esc(g.p)}">${esc(g.p ? tr(g.label) : g.label)}</option>`).join("");
+    fillNames(); box.hidden = false; place();
+  });
+  document.addEventListener("focusout", e=>{ if (e.target === target){ caret = [target.selectionStart, target.selectionEnd]; }
+    setTimeout(()=>{ const a = document.activeElement; if (!box.contains(a) && a !== target){ box.hidden = true; target = null; } }, 0); });
+  pp.addEventListener("change", fillNames);
+  box.querySelector(".pi").addEventListener("click", ()=>{
+    if (!target || !pn.value) return;
+    const v = target.value, [a, b] = caret || [v.length, v.length];
+    const before = v.slice(0, a), after = v.slice(b);
+    const sep = before && !/[\s(（+\-*/×÷−,、]$/.test(before) ? " + " : "";
+    const ins = sep + pn.value;
+    target.value = before + ins + after; const pos = (before + ins).length;
+    target.dispatchEvent(new Event("input", { bubbles:true })); target.dispatchEvent(new Event("change", { bubbles:true }));
+    target.focus(); target.setSelectionRange(pos, pos); caret = [pos, pos];
+  });
+  addEventListener("resize", place); addEventListener("scroll", place, true);
 })();
 $("addLedgerCol").addEventListener("click", ()=>addLedgerColRow({}).querySelector("input").focus());
 $("projTable").addEventListener("click", e=>{ const tr = e.target.closest("tr[data-pid]"); if (tr) openProject(tr.dataset.pid); });
