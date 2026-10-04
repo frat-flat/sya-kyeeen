@@ -57,7 +57,33 @@ h2{font-size:1.15rem;font-weight:700}
 .fxexp .xn{font-weight:700}
 .fxexp .xe{word-break:break-word}
 .fxexp .xs{grid-column:2/-1;color:var(--muted,#888);font-size:.8rem}
-@media (max-width:600px){.fxexp .xr{grid-template-columns:auto 1fr}.fxexp .xe{grid-column:1/-1}}
+.fxexp .xr{grid-template-columns:auto minmax(7em,max-content) minmax(0,1fr) auto}
+.fxexp .xr>.lt{justify-self:start}
+.fxexp .xd{font-size:.82rem;white-space:nowrap;grid-row:1;grid-column:4}
+.fxexp .xe{grid-row:1;grid-column:3}
+.fxexp .xt{grid-column:1/-1;min-width:0;overflow-x:auto;padding:8px 0 4px}
+.ltk{display:inline-grid;place-items:center;min-width:1.7em;height:1.7em;margin:0 1px;padding:0 3px;border-radius:5px;background:var(--soft);border:1px solid var(--line);font:inherit;font-size:.78rem;font-weight:700;color:var(--accent);cursor:help;vertical-align:baseline}
+.ltk:hover,.ltk:focus-visible,.ltk.on{background:var(--accent);color:#fff;outline:none}
+.ltn{font-size:.85em;color:var(--muted,#777)}
+#ltTip{position:fixed;z-index:60;max-width:min(420px,calc(100vw - 24px));padding:9px 12px;border-radius:10px;background:#1f2a26;color:#fff;font-size:.84rem;line-height:1.6;box-shadow:0 6px 24px rgba(0,0,0,.25);pointer-events:none}
+#ltTip .tf{margin-top:4px;padding-top:4px;border-top:1px solid rgba(255,255,255,.2);color:#cfe}
+#ltTip .ltk{background:rgba(255,255,255,.15);border-color:rgba(255,255,255,.3);color:#fff}
+#ltTip .ltn{color:#cde}
+.tree,.tree ul{list-style:none;margin:0;padding:0}
+.tree ul{padding-left:22px}
+.tree li{position:relative;padding:3px 0 3px 16px}
+.tree>li{padding-left:0}
+.tree ul>li::before{content:"";position:absolute;left:0;top:0;bottom:0;border-left:1.5px solid var(--line)}
+.tree ul>li:last-child::before{bottom:auto;height:19px}
+.tree ul>li::after{content:"";position:absolute;left:0;top:19px;width:14px;border-top:1.5px solid var(--line)}
+.tn{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border:1px solid var(--line);border-radius:8px;background:var(--card,#fff);font-size:.86rem;white-space:nowrap}
+.tn.root{font-weight:700;border-color:var(--accent)}
+.tn.leaf{background:var(--soft)}
+.tn .lt{display:inline-grid;place-items:center;min-width:1.6em;height:1.6em;border-radius:5px;background:var(--soft);border:1px solid var(--line);font-size:.72rem;font-weight:700;color:var(--accent)}
+.tn .sg{display:inline-grid;place-items:center;width:1.4em;height:1.4em;border-radius:50%;font-weight:700;font-size:.85rem;color:#fff}
+.tn .sg.p{background:#2f8a5b}.tn .sg.m{background:#c0503a}
+.tn .tg{font-size:.74rem;color:var(--muted,#888)}
+@media (max-width:600px){.fxexp .xr{grid-template-columns:auto minmax(0,1fr) auto}.fxexp .xd{grid-column:3}.fxexp .xe{grid-row:2;grid-column:1/-1}.fxexp .xs{grid-column:1/-1}}
 #settingsForm[data-ftab="all"] #ledgerFxSet{margin-top:18px}
 .ledger .act{width:1%;padding-left:6px;padding-right:2px}
 .rowedit{padding:3px 10px;font-size:.8rem;white-space:nowrap}
@@ -577,7 +603,7 @@ details summary{cursor:pointer;font-family:var(--font-display);font-weight:700;f
         </div>
         <div class="spage" data-pages="formulas" id="fxAllSet" style="display:grid;gap:8px">
           <div class="ftab-all">まとめた式</div>
-          <span class="hint">上の式を、ほかの項目の式で置き換えられるところまで置き換えて、同じ項目をまとめた式です。右側に残るのは手入力の項目・開始時点の借入額・定数などです。台帳の項目（合計借入額など）の式では、項目名はすべての取引の合計です。保存すると更新されます。</span>
+          <span class="hint">上の式を、ほかの項目の式で置き換えられるところまで置き換えて、同じ項目をまとめ、記号で表した式です。記号にカーソルを当てる（スマホではタップ）と、その項目の名前と式が出ます。「図」で式の組み立てを図にできます。台帳の項目（合計借入額など）の式では、項目名はすべての取引の合計です。保存すると更新されます。</span>
           <div class="fxexp" id="fxExpanded"></div>
         </div>
         <div class="spage" data-pages="accounts" id="acctsSet" style="display:grid;gap:10px">
@@ -1569,30 +1595,91 @@ function linText(L){
   if (Math.abs(L.c) > 1e-9 || !out) out += out ? (L.c < 0 ? ` − ${num(-L.c)}` : ` + ${num(L.c)}`) : num(L.c);
   return out;
 }
+/* 名前 ⇔ 記号の対応と、各名前の式（置き換えに使う） */
+let fxCtx = null;
+function fxContext(){
+  const L = ledgerFx(settings), LT = L.letters, simple = isSimple();
+  const defs = new Map(), letter = new Map(), title = new Map();
+  const mk = n=>`\u0001${encodeURIComponent(n)}\u0002`;
+  defs.label = mk;
+  L.defs.items.forEach(x=>{ letter.set(x.name, x.letter); title.set(x.name, x.name); if (x.node) defs.set(x.name, { node:x.node }); });
+  if (simple){
+    LETTER_ORDER.forEach(([k,v])=>{ if (v && !letter.has(v)){ letter.set(v, LT[k]); title.set(v, tr(LFX.find(f=>f.key===k)?.label || v)); } });
+    if (!letter.has("借入額")){ letter.set("借入額", LT.start); title.set("借入額", tr("開始時点の借入額")); }
+    title.set("開始時点の借入額", tr("開始時点の借入額")); title.set("支払額", tr("支払額"));
+    L.cols.forEach((c,i)=>{ if (c.name){ letter.set(c.name, LT.cols[i]); title.set(c.name, c.name); } });
+    if (!L.errors.length){
+      if (L.startNode){ defs.set("開始時点の借入額", { node:L.startNode }); defs.set("借入額", { node:L.startNode }); }
+      defs.set("合計借入額", { node:fxNode(L, "loanTotal") }); defs.set("合計返済額", { node:fxNode(L, "repayTotal") }); defs.set("残高", { node:fxNode(L, "balanceNow") });
+      L.cols.forEach(c=>{ if (c.node) defs.set(c.name, { node:c.node }); });
+    }
+  }
+  return { L, LT, simple, defs, letter, title, mk };
+}
+/* 印（\u0001名前\u0002）の入った式の文字列を、記号のボタン入りの HTML にする */
+function fxHtml(text, C){
+  return esc(text).replace(/\u0001([^\u0002]*)\u0002/g, (_,e)=>{ const n = decodeURIComponent(e), l = C.letter.get(n);
+    return l ? `<button type="button" class="ltk" data-n="${esc(n)}">${esc(l)}</button>` : `<span class="ltn">${esc(LEDGER_VARS.includes(n) ? tr(n) : n)}</span>`; });
+}
+function fxOwn(n, C){ const d = C.defs.get(n); return d ? exprText(d.node, C.mk) : ""; }
+function fxFull(n, C){ const d = C.defs.get(n); return d ? linText(linExpand(d.node, C.defs, [n])) : ""; }
+/* 記号に重ねたときの説明：名前、元の式、まとめた式 */
+function fxTipHtml(n){
+  const C = fxCtx; if (!C) return "";
+  const l = C.letter.get(n) || "", nm = C.title.get(n) || n, own = fxOwn(n, C);
+  if (!own) return `<b>${esc(l)}　${esc(nm)}</b><div>${n === "支払額" ? "取引ごとに入力する金額" : C.L.defs.consts.some(x=>x.name===n) ? "定数" : "手入力（式なし）"}</div>`;
+  const full = fxFull(n, C);
+  return `<b>${esc(l)}　${esc(nm)}</b><div>= ${fxHtml(own, C)}</div>` + (full !== own ? `<div class="tf">まとめると = ${fxHtml(full, C)}</div>` : "");
+}
+/* 式を足し引きの項に分ける（図の枝になる） */
+function fxTerms(node, sign, out){
+  if (node.op === "+" || node.op === "-"){ fxTerms(node.a, sign, out); fxTerms(node.b, node.op === "+" ? sign : -sign, out); }
+  else if (node.op === "neg") fxTerms(node.a, -sign, out);
+  else out.push({ sign, node });
+  return out;
+}
+/* 図：項目を根にして、式の項を枝に、手入力の項目に行きつくまで枝分かれさせる */
+function fxTree(name, node, C, stack){
+  const box = (sg, inner, cls)=>`<div class="tn ${cls||""}">${sg ? `<span class="sg ${sg === "−" ? "m" : "p"}">${sg}</span>` : ""}${inner}</div>`;
+  const label = n=>{ const l = C.letter.get(n); return `${l ? `<span class="lt">${esc(l)}</span>` : ""}<span>${esc(C.title.get(n) || (LEDGER_VARS.includes(n) ? tr(n) : n))}</span>`; };
+  const branch = (n, sg, st)=>{
+    const d = C.defs.get(n);
+    if (!d) return `<li>${box(sg, label(n) + `<span class="tg">${n === "支払額" ? "取引の金額" : n === "開始時点の借入額" || n === "借入額" ? "最初に入力" : C.L.defs.consts.some(x=>x.name===n) ? "定数" : C.letter.has(n) && !LEDGER_VARS.includes(n) ? "手入力" : "取引から"}</span>`, "leaf")}</li>`;
+    if (st.includes(n) || st.length > 12) return `<li>${box(sg, label(n) + '<span class="tg">（上と同じ）</span>', "leaf")}</li>`;
+    return `<li>${box(sg, label(n))}<ul>${kids(d.node, [...st, n])}</ul></li>`;
+  };
+  const kids = (nd, st)=>fxTerms(nd, 1, []).map(t=>{
+    const sg = t.sign > 0 ? "+" : "−", x = t.node;
+    if (x.ref !== undefined) return branch(x.ref, sg, st);
+    if (x.num !== undefined) return `<li>${box(sg, `<span>${esc(exprText(x, n=>n))}</span>`, "leaf")}</li>`;
+    const refs = [...refsOf(x)];
+    return `<li>${box(sg, `<span class="ex">${fxHtml(exprText(x, C.mk), C)}</span>`)}${refs.length ? `<ul>${refs.map(r=>branch(r, "", st)).join("")}</ul>` : ""}</li>`;
+  }).join("");
+  return `<ul class="tree"><li>${box("", label(name) + (stack.length ? "" : ""), "root")}<ul>${kids(node, [name])}</ul></li></ul>`;
+}
 function renderFxAll(){
   const box = $("fxExpanded"); if (!box || !settings) return;
-  const L = ledgerFx(settings), LT = L.letters, simple = isSimple();
-  const label = n=>LEDGER_VARS.includes(n) ? tr(n) : n;
-  const defs = new Map(); defs.label = label;
-  L.defs.items.forEach(x=>{ if (x.node) defs.set(x.name, { node:x.node }); });
-  if (simple && !L.errors.length){
-    if (L.startNode){ defs.set("開始時点の借入額", { node:L.startNode }); defs.set("借入額", { node:L.startNode }); }
-    defs.set("合計借入額", { node:fxNode(L, "loanTotal") }); defs.set("合計返済額", { node:fxNode(L, "repayTotal") }); defs.set("残高", { node:fxNode(L, "balanceNow") });
-    L.cols.forEach(c=>{ if (c.node) defs.set(c.name, { node:c.node }); });
-  }
+  const C = fxCtx = fxContext(), L = C.L, LT = C.LT;
   const rows = [];
-  const row = (lt, name, node, own)=>{ if (!node) return;
-    const t = linText(linExpand(node, defs, own ? [own] : []));
-    rows.push(`<div class="xr">${ltSpan(lt)}<span class="xn">${esc(name)}</span><span class="xe">= ${esc(t)}</span></div>`); };
-  L.defs.items.forEach(x=>row(x.letter, x.name, x.node, x.name));
-  if (simple && !L.errors.length){
-    if (L.startNode) row(LT.start, tr("開始時点の借入額"), L.startNode, "開始時点の借入額");
+  const row = (lt, key, name, node)=>{ if (!node) return;
+    const own = exprText(node, C.mk), full = linText(linExpand(node, C.defs, [key]));
+    rows.push(`<div class="xr" data-k="${esc(key)}">${ltSpan(lt)}<span class="xn">${esc(name)}</span><button type="button" class="link xd" aria-expanded="false">図</button><span class="xe">= ${fxHtml(full, C)}</span>` +
+      (full !== own ? `<span class="xs">元の式：${fxHtml(own, C)}</span>` : "") + `<div class="xt" hidden></div></div>`);
+    fxRows[key] = { name, node };
+  };
+  fxRows = {};
+  L.defs.items.forEach(x=>row(x.letter, x.name, x.name, x.node));
+  if (C.simple && !L.errors.length){
+    if (L.startNode) row(LT.start, "開始時点の借入額", tr("開始時点の借入額"), L.startNode);
     const own = { loanTotal:"合計借入額", repayTotal:"合計返済額", balanceNow:"残高" };
-    [...LFX].sort((a,b)=>LT[a.key] < LT[b.key] ? -1 : 1).forEach(f=>row(LT[f.key], tr(f.label), fxNode(L, f.key), own[f.key]));
-    L.cols.forEach((c,i)=>row(LT.cols[i], c.name, c.node, c.name));
+    [...LFX].sort((a,b)=>LT[a.key].length - LT[b.key].length || (LT[a.key] < LT[b.key] ? -1 : 1)).forEach(f=>{
+      const k = own[f.key] || ("§" + f.key); if (!own[f.key]){ C.letter.set(k, LT[f.key]); C.title.set(k, tr(f.label)); }
+      row(LT[f.key], k, tr(f.label), fxNode(L, f.key)); });
+    L.cols.forEach((c,i)=>row(LT.cols[i], c.name, c.name, c.node));
   }
   box.innerHTML = rows.join("") || `<div class="xr"><span></span><span class="xs">式のある項目がありません。</span></div>`;
 }
+let fxRows = {};
 function readTerms(){ const o = {}; Object.keys(TERM_DEFAULTS).forEach(k=>{ const v = $("t_" + k).value.trim(); if (v && v !== TERM_DEFAULTS[k]) o[k] = v; }); return o; }
 /* 開始時点の借入額の欄：数字だけなら金額として保存し、式なら式として保存する */
 function startIsNumber(){ const v = normExpr($("lfStart").value).replace(/[,，円\s]/g, ""); return v === "" || /^-?\d+(\.\d+)?$/.test(v); }
@@ -2063,6 +2150,27 @@ $("lfTabs").addEventListener("click", ev=>{ const b = ev.target.closest("button[
   $("lfTabs").querySelectorAll("button").forEach(x=>x.setAttribute("aria-selected", String(x === b)));
   $("settingsForm").dataset.ftab = b.dataset.lt; if (b.dataset.lt === "all") renderFxAll(); });
 
+$("fxExpanded").addEventListener("click", e=>{ const b = e.target.closest(".xd"); if (!b) return;
+  const r = b.closest(".xr"), t = r.querySelector(".xt"), d = fxRows[r.dataset.k]; if (!d || !fxCtx) return;
+  if (t.hidden) t.innerHTML = fxTree(r.dataset.k, d.node, fxCtx, []);
+  t.hidden = !t.hidden; b.setAttribute("aria-expanded", String(!t.hidden)); b.textContent = t.hidden ? "図" : "図を閉じる"; });
+(()=>{ const tip = document.createElement("div"); tip.id = "ltTip"; tip.hidden = true; tip.setAttribute("role", "tooltip"); document.body.appendChild(tip);
+  let cur = null, shownAt = 0;
+  const show = b=>{ cur = b; shownAt = Date.now(); document.querySelectorAll(".ltk.on").forEach(x=>x.classList.remove("on")); b.classList.add("on");
+    tip.innerHTML = fxTipHtml(b.dataset.n); tip.hidden = false;
+    const r = b.getBoundingClientRect(), w = tip.offsetWidth, h = tip.offsetHeight;
+    tip.style.left = Math.max(12, Math.min(innerWidth - w - 12, r.left + r.width/2 - w/2)) + "px";
+    tip.style.top = (r.bottom + 8 + h > innerHeight ? r.top - h - 8 : r.bottom + 8) + "px"; };
+  const hide = ()=>{ cur && cur.classList.remove("on"); cur = null; tip.hidden = true; };
+  let touchAt = 0; document.addEventListener("touchstart", ()=>{ touchAt = Date.now(); }, { passive:true, capture:true });
+  const byTouch = ()=>Date.now() - touchAt < 1000;
+  document.addEventListener("mouseover", e=>{ const b = e.target.closest(".ltk"); if (b && !byTouch()) show(b); });
+  document.addEventListener("mouseout", e=>{ if (!byTouch() && e.target.closest(".ltk") && !e.relatedTarget?.closest?.(".ltk")) hide(); });
+  document.addEventListener("focusin", e=>{ const b = e.target.closest(".ltk"); if (b) show(b); });
+  document.addEventListener("focusout", e=>{ if (e.target.closest(".ltk")) hide(); });
+  document.addEventListener("click", e=>{ const b = e.target.closest(".ltk"); if (b){ e.preventDefault(); show(b); } else hide(); });
+  addEventListener("scroll", ()=>{ if (Date.now() - shownAt > 400) hide(); }, true);
+})();
 $("addLedgerCol").addEventListener("click", ()=>addLedgerColRow({}).querySelector("input").focus());
 $("projTable").addEventListener("click", e=>{ const tr = e.target.closest("tr[data-pid]"); if (tr) openProject(tr.dataset.pid); });
 $("projTable").addEventListener("keydown", e=>{ if (e.key==="Enter"){ const tr = e.target.closest("tr[data-pid]"); if (tr) openProject(tr.dataset.pid); } });
