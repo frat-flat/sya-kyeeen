@@ -1166,6 +1166,11 @@ async function persistMeta(m){
 async function persistSettings(s){
   const modeChanged = (s.inputMode || "simple") !== (settings.inputMode || "simple");
   await persistMeta({ accounts: s.accounts, projects: meta.projects.map(p=>p.id===cur ? { ...p, ...pick(s, PROJECT_KEYS), id: p.id } : p) });
+  // 計算式を変えたら、保存済みの取引の内訳もその場で新しい式で計算し直して保存する（読み込み直さなくても、どの画面でも同じ値になるように）
+  if (!modeChanged && settings.inputMode === "simple"){
+    const stale = months.map(e=>liveEntry(e, settings)).filter((e,i)=>JSON.stringify(e.transfers) !== JSON.stringify(months[i].transfers));
+    for (const m of stale) await persistMonth(m);
+  }
   renderSettings();
   if (modeChanged){ applyMode(); startNew(); renderLedger(); }
   else { const f = readForm(); fillForm(f); renderCalc(); }   // 内訳項目が変わったら入力欄を作り直す
