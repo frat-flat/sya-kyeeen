@@ -50,7 +50,14 @@ h2{font-size:1.15rem;font-weight:700}
 .ftab-all{display:none;font-size:1rem;font-weight:700;margin:6px 0 0;padding-bottom:6px;border-bottom:2px solid var(--line)}
 #settingsForm[data-page="formulas"][data-ftab="all"] .ftab-all{display:block}
 #settingsForm:not([data-ftab="all"]) #fxAllSet{display:none!important}
-#fxAll{width:100%;font:inherit;font-size:.92rem;line-height:1.7;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--card,#fff);color:inherit;resize:vertical}
+.fxexp{display:grid;gap:0;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.fxexp .xr{display:grid;grid-template-columns:auto minmax(7em,max-content) 1fr;gap:4px 10px;align-items:baseline;padding:8px 12px;border-top:1px solid var(--line);font-size:.92rem}
+.fxexp .xr:first-child{border-top:0}
+.fxexp .xr .lt{display:inline-grid;place-items:center;min-width:1.7em;height:1.7em;border-radius:5px;background:var(--soft);border:1px solid var(--line);font-size:.74rem;font-weight:700;color:var(--accent)}
+.fxexp .xn{font-weight:700}
+.fxexp .xe{word-break:break-word}
+.fxexp .xs{grid-column:2/-1;color:var(--muted,#888);font-size:.8rem}
+@media (max-width:600px){.fxexp .xr{grid-template-columns:auto 1fr}.fxexp .xe{grid-column:1/-1}}
 #settingsForm[data-ftab="all"] #ledgerFxSet{margin-top:18px}
 .ledger .act{width:1%;padding-left:6px;padding-right:2px}
 .rowedit{padding:3px 10px;font-size:.8rem;white-space:nowrap}
@@ -569,10 +576,9 @@ details summary{cursor:pointer;font-family:var(--font-display);font-weight:700;f
           <div class="ferr" id="ledgerErr" hidden></div>
         </div>
         <div class="spage" data-pages="formulas" id="fxAllSet" style="display:grid;gap:8px">
-          <div class="ftab-all">すべての式を1か所で書く</div>
-          <span class="hint">1行に1つ、「記号 = 式」の形で書きます（例：<code>O = J + E</code>）。（ ）の中の名前は目印なので消しても構いません。右側を空にすると、内訳項目は手入力、台帳の項目は初期の式になります。書かなかった行は今の式のままです。ここで書き換えると上の欄にもすぐ反映され、「保存」で保存されます。</span>
-          <textarea id="fxAll" rows="12" spellcheck="false" aria-label="すべての式"></textarea>
-          <div class="ferr" id="fxAllErr" hidden></div>
+          <div class="ftab-all">まとめた式</div>
+          <span class="hint">上の式を、ほかの項目の式で置き換えられるところまで置き換えて、同じ項目をまとめた式です。右側に残るのは手入力の項目・開始時点の借入額・定数などです。台帳の項目（合計借入額など）の式では、項目名はすべての取引の合計です。保存すると更新されます。</span>
+          <div class="fxexp" id="fxExpanded"></div>
         </div>
         <div class="spage" data-pages="accounts" id="acctsSet" style="display:grid;gap:10px">
           <div class="accts" id="acctsBox"></div>
@@ -1526,39 +1532,66 @@ function addLedgerColRow(x){
   row.querySelector("button").addEventListener("click", ()=>{ row.remove(); renderLfLetters(); });
   $("ledgerColBox").appendChild(row); renderLfLetters(); return row;
 }
-/* 総合タブの「すべての式」欄：各欄の式を「記号（名前） = 式」の行にまとめ、書き換えたら各欄へ戻す */
-function fxAllTargets(){
-  const rows = [...$("itemDefBox").querySelectorAll(".def")], cols = [...$("ledgerColBox").querySelectorAll(".def")];
-  const LT = ledgerLetters(rows.length, cols.length), t = [];
-  rows.forEach((r,i)=>t.push({ l: letterOf(i), name: r.querySelector("input.n").value.trim(), el: r.querySelector("input.f") }));
-  if ($("sMode").value === "simple"){
-    t.push({ l: LT.start, name: tr("開始時点の借入額"), el: $("lfStart") });
-    LFX.forEach(f=>t.push({ l: LT[f.key], name: tr(f.label), el: $("lf_" + f.key) }));
-    cols.forEach((r,i)=>{ const [n,f] = r.querySelectorAll("input"); t.push({ l: LT.cols[i], name: n.value.trim(), el: f }); });
+/* 総合タブの「まとめた式」：式の中の項目を、その項目の式で置き換えられるだけ置き換え、同じ項目の係数をまとめる。
+   足し算・引き算・定数倍・定数で割る までをまとめ、それ以外（関数や項目どうしの掛け算）はかたまりのまま残す */
+function linExpand(node, defs, stack){
+  const L = { c:0, t:new Map() };
+  const add = (k, text, coef)=>{ const o = L.t.get(k); if (o) o.coef += coef; else L.t.set(k, { text, coef }); };
+  const merge = (x, f)=>{ L.c += x.c * f; x.t.forEach((v,k)=>add(k, v.text, v.coef * f)); };
+  const isC = x=>x.t.size === 0;
+  const opaque = n=>{ const text = linText(linExpandOpaque(n, defs, stack)); add("§" + text, text, 1); };
+  if (node.num !== undefined){ L.c = node.num; return L; }
+  if (node.ref !== undefined){
+    const d = defs.get(node.ref);
+    if (d && !stack.includes(node.ref)) return linExpand(d.node, defs, [...stack, node.ref]);
+    add(node.ref, defs.label(node.ref), 1); return L;
   }
-  t.sort((a,b)=>a.l.length - b.l.length || (a.l < b.l ? -1 : a.l > b.l ? 1 : 0));
-  return { t, paid: LT.paid };
+  if (node.fn){ opaque(node); return L; }
+  if (node.op === "neg"){ merge(linExpand(node.a, defs, stack), -1); return L; }
+  const a = linExpand(node.a, defs, stack), b = linExpand(node.b, defs, stack);
+  if (node.op === "+" || node.op === "-"){ merge(a, 1); merge(b, node.op === "+" ? 1 : -1); return L; }
+  if (node.op === "*" && isC(a)){ merge(b, a.c); return L; }
+  if (node.op === "*" && isC(b)){ merge(a, b.c); return L; }
+  if (node.op === "/" && isC(b) && b.c !== 0){ merge(a, 1 / b.c); return L; }
+  const t = `(${linText(a)}) ${node.op === "*" ? "×" : "÷"} (${linText(b)})`; add("§" + t, t, 1); return L;
+}
+function linExpandOpaque(n, defs, stack){
+  const jp = { round:"四捨五入", floor:"切り捨て", ceil:"切り上げ", min:"最小", max:"最大" }[n.fn];
+  return { c:0, t:new Map([["§", { text:`${jp}(${n.args.map(a=>linText(linExpand(a, defs, stack))).join(", ")})`, coef:1 }]]) };
+}
+function linText(L){
+  const num = v=>String(+v.toFixed(6));
+  const ts = [...L.t.values()].filter(v=>Math.abs(v.coef) > 1e-9);
+  const pos = ts.filter(v=>v.coef > 0), neg = ts.filter(v=>v.coef < 0);
+  const part = v=>{ const c = Math.abs(v.coef); return c === 1 ? v.text : `${num(c)} × ${v.text}`; };
+  let out = pos.map(part).join(" + ");
+  neg.forEach(v=>{ out += (out ? " − " : "−") + part(v); });
+  if (Math.abs(L.c) > 1e-9 || !out) out += out ? (L.c < 0 ? ` − ${num(-L.c)}` : ` + ${num(L.c)}`) : num(L.c);
+  return out;
 }
 function renderFxAll(){
-  const ta = $("fxAll"); if (!ta || document.activeElement === ta) return;
-  ta.value = fxAllTargets().t.map(x=>`${x.l}（${x.name || "名前なし"}） = ${x.el.value.trim()}`).join("\n");
-  ta.rows = Math.max(6, ta.value.split("\n").length + 1);
-  $("fxAllErr").hidden = true;
-}
-function applyFxAll(){
-  const { t, paid } = fxAllTargets(), byKey = {}, errs = [];
-  t.forEach(x=>{ byKey[x.l] = x; if (x.name) byKey[x.name] = x; });
-  $("fxAll").value.split(/\r?\n/).forEach((line, i)=>{
-    if (!line.trim()) return;
-    const m = line.match(/^\s*([^=＝（(]+?)\s*(?:[（(][^）)]*[）)])?\s*[=＝]\s*(.*)$/);
-    if (!m){ errs.push(`${i+1}行目：「記号 = 式」の形になっていません。`); return; }
-    const k = m[1].trim().toUpperCase() in byKey ? m[1].trim().toUpperCase() : m[1].trim();
-    if (k === paid){ errs.push(`${i+1}行目：${paid}（${tr("支払額")}）は取引ごとに入力する金額なので、式は書けません。`); return; }
-    const x = byKey[k]; if (!x){ errs.push(`${i+1}行目：「${m[1].trim()}」という記号・項目はありません。`); return; }
-    if (x.el.value.trim() !== m[2].trim()) x.el.value = m[2].trim();
-  });
-  $("fxAllErr").innerHTML = errs.map(esc).join("<br>"); $("fxAllErr").hidden = !errs.length;
-  renderStructure();
+  const box = $("fxExpanded"); if (!box || !settings) return;
+  const L = ledgerFx(settings), LT = L.letters, simple = isSimple();
+  const label = n=>LEDGER_VARS.includes(n) ? tr(n) : n;
+  const defs = new Map(); defs.label = label;
+  L.defs.items.forEach(x=>{ if (x.node) defs.set(x.name, { node:x.node }); });
+  if (simple && !L.errors.length){
+    if (L.startNode){ defs.set("開始時点の借入額", { node:L.startNode }); defs.set("借入額", { node:L.startNode }); }
+    defs.set("合計借入額", { node:fxNode(L, "loanTotal") }); defs.set("合計返済額", { node:fxNode(L, "repayTotal") }); defs.set("残高", { node:fxNode(L, "balanceNow") });
+    L.cols.forEach(c=>{ if (c.node) defs.set(c.name, { node:c.node }); });
+  }
+  const rows = [];
+  const row = (lt, name, node, own)=>{ if (!node) return;
+    const t = linText(linExpand(node, defs, own ? [own] : []));
+    rows.push(`<div class="xr">${ltSpan(lt)}<span class="xn">${esc(name)}</span><span class="xe">= ${esc(t)}</span></div>`); };
+  L.defs.items.forEach(x=>row(x.letter, x.name, x.node, x.name));
+  if (simple && !L.errors.length){
+    if (L.startNode) row(LT.start, tr("開始時点の借入額"), L.startNode, "開始時点の借入額");
+    const own = { loanTotal:"合計借入額", repayTotal:"合計返済額", balanceNow:"残高" };
+    [...LFX].sort((a,b)=>LT[a.key] < LT[b.key] ? -1 : 1).forEach(f=>row(LT[f.key], tr(f.label), fxNode(L, f.key), own[f.key]));
+    L.cols.forEach((c,i)=>row(LT.cols[i], c.name, c.node, c.name));
+  }
+  box.innerHTML = rows.join("") || `<div class="xr"><span></span><span class="xs">式のある項目がありません。</span></div>`;
 }
 function readTerms(){ const o = {}; Object.keys(TERM_DEFAULTS).forEach(k=>{ const v = $("t_" + k).value.trim(); if (v && v !== TERM_DEFAULTS[k]) o[k] = v; }); return o; }
 /* 開始時点の借入額の欄：数字だけなら金額として保存し、式なら式として保存する */
@@ -2029,10 +2062,7 @@ $("showDone").addEventListener("change", renderDash);
 $("lfTabs").addEventListener("click", ev=>{ const b = ev.target.closest("button[data-lt]"); if (!b) return;
   $("lfTabs").querySelectorAll("button").forEach(x=>x.setAttribute("aria-selected", String(x === b)));
   $("settingsForm").dataset.ftab = b.dataset.lt; if (b.dataset.lt === "all") renderFxAll(); });
-$("fxAll").addEventListener("input", applyFxAll);
-$("fxAll").addEventListener("blur", ()=>{ if ($("fxAllErr").hidden) renderFxAll(); });
-$("settingsForm").addEventListener("click", e=>{ if (e.target.closest("button") && $("settingsForm").dataset.ftab === "all") setTimeout(renderFxAll); });
-$("settingsForm").addEventListener("input", e=>{ if (e.target.id !== "fxAll" && $("settingsForm").dataset.ftab === "all") renderFxAll(); });
+
 $("addLedgerCol").addEventListener("click", ()=>addLedgerColRow({}).querySelector("input").focus());
 $("projTable").addEventListener("click", e=>{ const tr = e.target.closest("tr[data-pid]"); if (tr) openProject(tr.dataset.pid); });
 $("projTable").addEventListener("keydown", e=>{ if (e.key==="Enter"){ const tr = e.target.closest("tr[data-pid]"); if (tr) openProject(tr.dataset.pid); } });
