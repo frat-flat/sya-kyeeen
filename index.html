@@ -786,6 +786,8 @@ const LEDGER_VARS = ["支払額","開始時点の借入額","借入額","件数"
 const LEDGER_SYN = { "借入額":"開始時点の借入額" };
 const SUM_BASE = ["開始時点の借入額","借入額","支払額","件数","各取引の借入額の合計","各取引の返済額の合計"];
 const SUM_TX = { borrowTx:"各取引の借入額の合計", repayTx:"各取引の返済額の合計" };
+const sigmaOf = n=>`各取引の${n}の合計`;
+function sigmaItemNames(itemNames){ return [...itemNames, "支払額"].map(sigmaOf).filter(n=>!LEDGER_VARS.includes(n)); }
 const TX_BASE = ["開始時点の借入額","借入額","支払額","件数","合計借入額","合計返済額","残高","前回までの合計借入額","前回までの合計返済額","前回残高"];
 /* 6つの式。use は式で使える名前（内訳項目名・定数名はどれでも使える） */
 const LFX = [
@@ -821,13 +823,15 @@ function compileLedger(src){
   defs.items.forEach((x,i)=>setL(letterOf(i), x.name));
   LETTER_ORDER.forEach(([k,v])=>setL(LT[k], v));
   cols.forEach((c,i)=>setL(LT.cols[i], c.name));
-  const names = [...LEDGER_VARS, ...Object.keys(alias), ...itemNames, ...constNames, ...colNames];
+  // 合計の式だけで使える「各取引の○○の合計」（内訳項目・支払額）
+  const sigmaNames = sigmaItemNames(itemNames);
+  const names = [...LEDGER_VARS, ...Object.keys(alias), ...itemNames, ...constNames, ...colNames, ...sigmaNames];
   const parse = (f, label, ban)=>{ const t = String(f || "").trim(); if (!t) return null;
     try { const n = parseExpr(t, names, alias); const bad = [...refsOf(n)].filter(r=>ban.includes(r)); if (bad.length) errors.push(`${label}：「${bad.map(b=>trS(src, b)).join("・")}」はこの式では使えません。`); return n; }
     catch(e){ errors.push(`${label}：${e.message}`); return null; } };
   const nodes = {}, dflt = {};
-  LFX.forEach(f=>{ nodes[f.key] = parse(fx[f.key], trS(src, `${f.label}の式`), [...LEDGER_VARS.filter(v=>!f.use.includes(v)), ...colNames]); dflt[f.key] = parseExpr(f.dflt, names); });
-  const colList = cols.map((c,i)=>({ name:c.name, formula:c.formula, node: parse(c.formula, `列「${c.name || "（名前なし）"}」の式`, ["直近の取引の返済額","直近の取引の借入額", ...colNames.slice(i)]) }));
+  LFX.forEach(f=>{ nodes[f.key] = parse(fx[f.key], trS(src, `${f.label}の式`), [...LEDGER_VARS.filter(v=>!f.use.includes(v)), ...colNames, ...(f.tab === "tx" ? sigmaNames : [])]); dflt[f.key] = parseExpr(f.dflt, names); });
+  const colList = cols.map((c,i)=>({ name:c.name, formula:c.formula, node: parse(c.formula, `列「${c.name || "（名前なし）"}」の式`, ["直近の取引の返済額","直近の取引の借入額", ...Object.values(SUM_TX), ...sigmaNames, ...colNames.slice(i)]) }));
   // 開始時点の借入額は数字か、定数だけを使った式
   const startNode = parse(fx.start, trS(src, "開始時点の借入額の式"), [...LEDGER_VARS, ...itemNames, ...colNames]);
   // 各取引の式を合計より先に計算できるか（合計借入額・合計返済額・残高を使っていない）。先に計算できる式だけ、合計の式で「各取引の…の合計」として使える
@@ -860,7 +864,8 @@ function runFx(L, key, get){ const x = Math.round(evalNode(fxNode(L, key), get))
 /* 取引の合計 sums（paid と 内訳項目id ごとの合計）に「合計」の式を当てはめる。返すのは式で使う名前と値の表 */
 function aggVars(L, s, sums, count, txSums){
   const v = { "支払額": sums.paid || 0, "件数": count, "各取引の借入額の合計": 0, "各取引の返済額の合計": 0, ...(txSums || {}) };
-  L.defs.items.forEach(x=>{ v[x.name] = sums[x.id] || 0; });
+  L.defs.items.forEach(x=>{ v[x.name] = v[sigmaOf(x.name)] = sums[x.id] || 0; });
+  v[sigmaOf("支払額")] = v["支払額"];
   const get = ledgerVals(L, s, v);
   v["合計借入額"] = runFx(L, "loanTotal", get);
   v["合計返済額"] = runFx(L, "repayTotal", get);
@@ -1638,6 +1643,8 @@ function fxContext(){
     if (!letter.has("借入額")){ letter.set("借入額", LT.start); title.set("借入額", tr("開始時点の借入額")); }
     title.set("開始時点の借入額", tr("開始時点の借入額")); title.set("支払額", tr("支払額"));
     Object.entries(SUM_TX).forEach(([k,v])=>{ letter.set(v, "Σ" + LT[k]); title.set(v, tr(v)); });
+    L.defs.items.forEach(x=>{ letter.set(sigmaOf(x.name), "Σ" + x.letter); title.set(sigmaOf(x.name), sigmaOf(x.name)); });
+    letter.set(sigmaOf("支払額"), "Σ" + LT.paid); title.set(sigmaOf("支払額"), sigmaOf(tr("支払額")));
     L.cols.forEach((c,i)=>{ if (c.name){ letter.set(c.name, LT.cols[i]); title.set(c.name, c.name); } });
     if (!L.errors.length){
       if (L.startNode){ defs.set("開始時点の借入額", { node:L.startNode }); defs.set("借入額", { node:L.startNode }); }
@@ -1659,6 +1666,8 @@ function fxTipHtml(n){
   const C = fxCtx; if (!C) return "";
   const l = C.letter.get(n) || "", nm = C.title.get(n) || n, own = fxOwn(n, C);
   const sk = Object.keys(SUM_TX).find(k=>SUM_TX[k] === n);
+  const si = !sk && n.startsWith("各取引の") && n.endsWith("の合計") ? n.slice(4, -3) : null;
+  if (si !== null && C.letter.has(si === "支払額" ? "支払額" : si)) return `<b>${esc(l)}　${esc(nm)}</b><div>${esc(C.letter.get(si) || "")}（${esc(si === "支払額" ? tr(si) : si)}）を、すべての取引の分だけ足したもの</div>`;
   if (sk) return `<b>${esc(l)}　${esc(nm)}</b><div>${esc(C.LT[sk])}（${esc(tr(LFX.find(f=>f.key===sk).label))}）を、すべての取引の分だけ足したもの</div>`;
   if (!own) return `<b>${esc(l)}　${esc(nm)}</b><div>${n === "支払額" ? "取引ごとに入力する金額" : C.L.defs.consts.some(x=>x.name===n) ? "定数" : "手入力（式なし）"}</div>`;
   const full = fxFull(n, C);
@@ -2236,6 +2245,11 @@ $("fxExpanded").addEventListener("click", e=>{ const b = e.target.closest(".xd")
     const LT = ledgerLetters(rows.length, $("ledgerColBox").querySelectorAll(".def").length);
     const sigma = n=>{ const k = Object.keys(SUM_TX).find(k=>SUM_TX[k] === n); return k ? `${tr(n)}（＝ ${LT[k]}「${tr(LFX.find(f=>f.key===k).label)}」の全取引分の合計）` : tr(n); };
     GROUPS.slice(1).forEach(g=>{ const l = g.names.filter(n=>use.includes(n)); if (l.length) o[g.p] = l.map(n=>({ v: tr(n), t: sigma(n) })); });
+    if (o["各取引の"]){
+      const extra = d.itemsRaw.map((x,i)=>x.name ? { v: sigmaOf(x.name), t: `${sigmaOf(x.name)}（＝ ${letterOf(i)}「${x.name}」の全取引分の合計）` } : null).filter(Boolean);
+      extra.push({ v: sigmaOf("支払額"), t: `${sigmaOf(tr("支払額"))}（＝ ${LT.paid}「${tr("支払額")}」の全取引分の合計）` });
+      o["各取引の"] = [...o["各取引の"], ...extra];
+    }
     return o;
   }
   const fillNames = ()=>{ const l = (opts && opts[pp.value]) || []; pn.innerHTML = l.map(x=>`<option value="${esc(x.v)}">${esc(x.t)}</option>`).join(""); };
