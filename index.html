@@ -614,7 +614,7 @@ details summary{cursor:pointer;font-family:var(--font-display);font-weight:700;f
               <span class="hint lfprev" id="lfP_loanTotal"></span>
               <div class="lfx"><label for="lf_repayTotal" id="lfL_repayTotal">合計返済額</label><input id="lf_repayTotal" maxlength="200"></div>
               <span class="hint lfprev" id="lfP_repayTotal"></span>
-            <span class="hint">空欄なら初期の式を使います。式の下の数値は、保存してある式と取引で計算した結果です（保存すると更新されます）。<br>関数：四捨五入( )・切り捨て( )・切り上げ( )・最小( , )・最大( , )・マイナスなら(式, マイナスのときの値)。<br><span id="lfLetterHint"></span></span>
+            <span class="hint">空欄なら初期の式を使います。式の下の数値は、保存してある式と取引で計算した結果です（保存すると更新されます）。<br>関数：四捨五入( )・切り捨て( )・切り上げ( )・最小( , )・最大( , )・プラスなら(式, プラスのときの値)・マイナスなら(式, マイナスのときの値)・正負で(式, プラスのときの値, マイナスのときの値)。<br><span id="lfLetterHint"></span></span>
           </div>
           <div class="ferr" id="ledgerErr" hidden></div>
         </div>
@@ -907,7 +907,7 @@ function renderLfLetters(){
    プロジェクトごとに「定数」「内訳項目（手入力 or 計算式）」「支払額の計算式」を持つ。
    式は + - * / ( ) と数字（10% 可）、項目名・定数名・「支払額」、関数（四捨五入・切り捨て・切り上げ・最小・最大）を使える。 */
 const AMOUNT_NAME = "支払額";
-const FUNCS = { "四捨五入":"round", "切り捨て":"floor", "切り上げ":"ceil", "最小":"min", "最大":"max", "マイナスなら":"ifneg", round:"round", floor:"floor", ceil:"ceil", min:"min", max:"max" };
+const FUNCS = { "四捨五入":"round", "切り捨て":"floor", "切り上げ":"ceil", "最小":"min", "最大":"max", "マイナスなら":"ifneg", "プラスなら":"ifpos", "正負で":"bysign", round:"round", floor:"floor", ceil:"ceil", min:"min", max:"max" };
 function normExpr(src){
   return String(src || "").replace(/[０-９．]/g, c=>String.fromCharCode(c.charCodeAt(0)-0xFEE0))
     .replace(/[＋]/g,"+").replace(/[−－ー‐]/g, c=>c==="ー" ? c : "-").replace(/[×＊]/g,"*").replace(/[÷／]/g,"/")
@@ -965,6 +965,8 @@ function evalNode(node, get){
   if (node.fn){ const v = node.args.map(a=>evalNode(a, get));
     if (node.fn==="min") return Math.min(...v); if (node.fn==="max") return Math.max(...v);
     if (node.fn==="ifneg") return v[0] < 0 ? (v.length > 1 ? v[1] : 0) : v[0];
+    if (node.fn==="ifpos") return v[0] > 0 ? (v.length > 1 ? v[1] : 0) : v[0];
+    if (node.fn==="bysign") return v[0] > 0 ? (v.length > 1 ? v[1] : v[0]) : v[0] < 0 ? (v.length > 2 ? v[2] : 0) : 0;
     return Math[node.fn](v[0]); }
   const a = evalNode(node.a, get);
   if (node.op==="neg") return -a;
@@ -978,7 +980,7 @@ function exprText(node, name, parent = 0){
   if (!node) return "";
   if (node.num !== undefined){ const v = node.num; return (v > 0 && v < 1) ? `${+(v*100).toFixed(6)}%` : String(v); }
   if (node.ref !== undefined) return name(node.ref);
-  if (node.fn){ const jp = { round:"四捨五入", floor:"切り捨て", ceil:"切り上げ", min:"最小", max:"最大", ifneg:"マイナスなら" }[node.fn]; return `${jp}(${node.args.map(a=>exprText(a, name)).join(", ")})`; }
+  if (node.fn){ const jp = { round:"四捨五入", floor:"切り捨て", ceil:"切り上げ", min:"最小", max:"最大", ifneg:"マイナスなら", ifpos:"プラスなら", bysign:"正負で" }[node.fn]; return `${jp}(${node.args.map(a=>exprText(a, name)).join(", ")})`; }
   if (node.op === "neg") return `-${exprText(node.a, name, 3)}`;
   const prec = (node.op==="+" || node.op==="-") ? 1 : 2;
   const sym = { "+":" + ", "-":" − ", "*":" × ", "/":" ÷ " }[node.op];
@@ -1617,7 +1619,7 @@ function linExpand(node, defs, stack){
   const t = `(${linText(a)}) ${node.op === "*" ? "×" : "÷"} (${linText(b)})`; add("§" + t, t, 1); return L;
 }
 function linExpandOpaque(n, defs, stack){
-  const jp = { round:"四捨五入", floor:"切り捨て", ceil:"切り上げ", min:"最小", max:"最大", ifneg:"マイナスなら" }[n.fn];
+  const jp = { round:"四捨五入", floor:"切り捨て", ceil:"切り上げ", min:"最小", max:"最大", ifneg:"マイナスなら", ifpos:"プラスなら", bysign:"正負で" }[n.fn];
   return { c:0, t:new Map([["§", { text:`${jp}(${n.args.map(a=>linText(linExpand(a, defs, stack))).join(", ")})`, coef:1 }]]) };
 }
 function linText(L){
@@ -2223,15 +2225,27 @@ $("fxExpanded").addEventListener("click", e=>{ const b = e.target.closest(".xd")
   ];
   const PLAIN = ["支払額","件数","開始時点の借入額","合計借入額","合計返済額","残高","今回の借入額","返済額","累計返済額","累計支払額"];
   const box = document.createElement("div"); box.id = "fxPick"; box.hidden = true;
-  box.innerHTML = '<span class="pl">選んで入れる：</span><select class="po" aria-label="足すか引くか"><option value="+">＋ 足す</option><option value="-">− 引く</option><option value="*">× 掛ける</option><option value="/">÷ 割る</option></select><select class="pp" aria-label="接頭語"></select><select class="pn" aria-label="項目"></select><button type="button" class="pi">入れる</button><span class="pl ng">結果がマイナスなら：</span><select class="pg ng" aria-label="結果がマイナスのとき"><option value="">そのまま</option><option value="0">0にする</option><option value="other">別の値・式にする</option></select>';
+  box.innerHTML = '<span class="pl">選んで入れる：</span><select class="po" aria-label="足すか引くか"><option value="+">＋ 足す</option><option value="-">− 引く</option><option value="*">× 掛ける</option><option value="/">÷ 割る</option></select><select class="pp" aria-label="接頭語"></select><select class="pn" aria-label="項目"></select><button type="button" class="pi">入れる</button><span class="pl ng">結果がプラスなら：</span><select class="pgp ng" aria-label="結果がプラスのとき"><option value="">そのまま</option><option value="0">0にする</option><option value="other">別の値・式にする</option></select><span class="pl ng">マイナスなら：</span><select class="pg ng" aria-label="結果がマイナスのとき"><option value="">そのまま</option><option value="0">0にする</option><option value="other">別の値・式にする</option></select>';
   document.body.appendChild(box);
   const pp = box.querySelector(".pp"), pn = box.querySelector(".pn"), pg = box.querySelector(".pg");
-  // 「マイナスなら(式, 値)」で包む／外す。空欄の台帳の式は初期の式を包む
-  const NEG = /^\s*マイナスなら\(([\s\S]*),\s*([^,]*?)\s*\)\s*$/;
-  const negState = v=>{ const m = String(v).match(NEG); return m ? (m[2] === "0" ? "0" : "other") : ""; };
-  const innerOf = el=>{ const m = el.value.match(NEG); if (m) return m[1].trim();
-    if (el.value.trim()) return el.value.trim();
-    const kd = el.id.startsWith("lf_") ? LFX.find(f=>f.key === el.id.slice(3)) : null; return kd ? showFx(kd.dflt) : ""; };
+  const pgp = box.querySelector(".pgp");
+  // 「プラスなら(式, 値)」「マイナスなら(式, 値)」「正負で(式, プラス, マイナス)」で包む／外す。空欄の台帳の式は初期の式を包む
+  const splitCall = text=>{
+    const t = String(text).trim(), m = t.match(/^(マイナスなら|プラスなら|正負で)\s*\(/); if (!m || !t.endsWith(")")) return null;
+    const body = t.slice(m[0].length, -1), args = []; let d = 0, cur = "";
+    for (const ch of body){ if (ch === "(" || ch === "（") d++; if (ch === ")" || ch === "）") d--; if (d < 0) return null;
+      if ((ch === "," || ch === "、") && d === 0){ args.push(cur.trim()); cur = ""; } else cur += ch; }
+    if (d !== 0) return null; args.push(cur.trim()); return { fn: m[1], args };
+  };
+  const signState = el=>{
+    const c = splitCall(el.value), st = { inner:"", plus:null, minus:null };
+    if (c && c.args.length >= 2){ st.inner = c.args[0];
+      if (c.fn === "マイナスなら") st.minus = c.args[1]; else if (c.fn === "プラスなら") st.plus = c.args[1]; else { st.plus = c.args[1]; st.minus = c.args[2] ?? "0"; } }
+    else if (el.value.trim()) st.inner = el.value.trim();
+    else { const kd = el.id.startsWith("lf_") ? LFX.find(f=>f.key === el.id.slice(3)) : null; st.inner = kd ? showFx(kd.dflt) : ""; }
+    return st;
+  };
+  const modeOf = v=>v === null ? "" : v === "0" ? "0" : "other";
   let target = null, caret = null, opts = null;
   const kindOf = el=>el.id === "lfStart" ? { k:"start" } : el.id.startsWith("lf_") ? { k:"lfx", key: el.id.slice(3) }
     : el.closest("#ledgerColBox") && el.id.startsWith("lcFx") ? { k:"col" } : el.closest("#itemDefBox") && el.classList.contains("f") ? { k:"item" } : null;
@@ -2262,31 +2276,44 @@ $("fxExpanded").addEventListener("click", e=>{ const b = e.target.closest(".xd")
   const fillNames = ()=>{ const l = (opts && opts[pp.value]) || []; pn.innerHTML = l.map(x=>`<option value="${esc(x.v)}">${esc(x.t)}</option>`).join(""); };
   const place = ()=>{ if (!target) return; const r = target.getBoundingClientRect();
     box.style.top = (r.bottom + scrollY + 4) + "px"; box.style.left = Math.max(8, Math.min(r.left + scrollX, scrollX + innerWidth - box.offsetWidth - 8)) + "px"; };
-  document.addEventListener("focusin", e=>{
+  const openFor = e=>{
     if (box.contains(e.target)) return;
+    if (e.type === "click" && !box.hidden && e.target === target) return;
     const el = e.target; if (!(el instanceof HTMLInputElement) || el.readOnly) { box.hidden = true; target = null; return; }
     const o = allowed(el); if (!o){ box.hidden = true; target = null; return; }
     target = el; opts = o; caret = null;
     box.querySelector(".po").value = "+";
-    pg.value = negState(el.value); box.querySelectorAll(".ng").forEach(x=>{ x.hidden = el.id === "lfStart"; });
+    { const st = signState(el); pg.value = modeOf(st.minus); pgp.value = modeOf(st.plus); }
+    box.querySelectorAll(".ng").forEach(x=>{ x.hidden = el.id === "lfStart"; });
     pp.innerHTML = GROUPS.filter(g=>o[g.p] && o[g.p].length).map(g=>`<option value="${esc(g.p)}">${esc(g.p ? tr(g.label) : g.label)}</option>`).join("");
     fillNames(); box.hidden = false; place();
-  });
+  };
+  document.addEventListener("focusin", openFor);
+  document.addEventListener("click", e=>{ if (e.target instanceof HTMLInputElement && e.target === document.activeElement) openFor(e); });
   document.addEventListener("focusout", e=>{ if (e.target === target){ caret = [target.selectionStart, target.selectionEnd]; }
     setTimeout(()=>{ const a = document.activeElement; if (!box.contains(a) && a !== target){ box.hidden = true; target = null; } }, 0); });
   pp.addEventListener("change", fillNames);
-  pg.addEventListener("change", ()=>{
-    if (!target) return; const inner = innerOf(target);
-    if (!inner){ pg.value = ""; return; }
-    if (!pg.value) target.value = inner;
-    else if (pg.value === "0") target.value = `マイナスなら(${inner}, 0)`;
-    else { const m = target.value.match(NEG), alt = m && m[2] !== "0" ? m[2] : "0";
-      target.value = `マイナスなら(${inner}, ${alt})`; }
+  const onSign = changed=>{
+    if (!target) return; const st = signState(target);
+    if (!st.inner){ pg.value = pgp.value = ""; return; }
+    const pick = (sel, old)=>sel.value === "" ? null : sel.value === "0" ? "0" : (old !== null && old !== "0" ? old : "0");
+    const P = pick(pgp, st.plus), M = pick(pg, st.minus);
+    let text, sel = null;
+    const mark = (pre, v)=>{ if (sel === null && changed.value === "other" && ((changed === pgp && v === P) || (changed === pg && v === M))) sel = [pre.length, pre.length + v.length]; return pre + v; };
+    if (P === null && M === null) text = st.inner;
+    else if (P === null){ text = mark(`マイナスなら(${st.inner}, `, M) + ")"; }
+    else if (M === null){ text = mark(`プラスなら(${st.inner}, `, P) + ")"; }
+    else { const head = `正負で(${st.inner}, `;
+      if (changed === pgp){ text = mark(head, P) + `, ${M})`; }
+      else { const h2 = `${head}${P}, `; text = mark(h2, M) + ")"; } }
+    target.value = text;
     target.dispatchEvent(new Event("input", { bubbles:true })); target.dispatchEvent(new Event("change", { bubbles:true }));
     target.focus();
-    if (pg.value === "other"){ const a = target.value.lastIndexOf(",") + 2, b = target.value.length - 1; target.setSelectionRange(a, b); caret = [a, b]; }
-    else { const e = target.value.length; caret = [e, e]; }
-  });
+    if (sel){ target.setSelectionRange(sel[0], sel[1]); caret = sel; } else { const e = text.length; caret = [e, e]; }
+  };
+  document.addEventListener("input", e=>{ if (e.target === target && !box.contains(e.target)){ const st = signState(target); pg.value = modeOf(st.minus); pgp.value = modeOf(st.plus); } });
+  pg.addEventListener("change", ()=>onSign(pg));
+  pgp.addEventListener("change", ()=>onSign(pgp));
   box.querySelector(".pi").addEventListener("click", ()=>{
     if (!target || !pn.value) return;
     const v = target.value, [a, b] = caret || [v.length, v.length];
