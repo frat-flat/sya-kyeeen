@@ -65,6 +65,7 @@ h2{font-size:1.15rem;font-weight:700}
 .ltk{display:inline-grid;place-items:center;min-width:1.7em;height:1.7em;margin:0 1px;padding:0 3px;border-radius:5px;background:var(--soft);border:1px solid var(--line);font:inherit;font-size:.78rem;font-weight:700;color:var(--accent);cursor:help;vertical-align:baseline}
 .ltk:hover,.ltk:focus-visible,.ltk.on{background:var(--accent);color:#fff;outline:none}
 .ltn{font-size:.85em;color:var(--muted,#777)}
+input.auto{background:var(--soft);color:var(--muted);cursor:not-allowed}
 #fxPick{position:absolute;z-index:40;display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:6px 8px;border:1px solid var(--line);border-radius:10px;background:var(--card,#fff);box-shadow:0 4px 16px rgba(0,0,0,.12);font-size:.82rem;max-width:calc(100vw - 24px)}
 #fxPick select{width:auto;height:2rem;padding:0 6px;font-size:.82rem}
 #fxPick button{padding:4px 10px;font-size:.82rem}
@@ -594,6 +595,8 @@ details summary{cursor:pointer;font-family:var(--font-display);font-weight:700;f
           <div class="simple-only" style="gap:10px">
             <div class="lfsub">取引1件ごとの額</div>
               <span class="hint" id="lfHintTx"></span>
+              <div class="lfx"><label for="lf_paid" id="lfL_paid">支払額</label><input id="lf_paid" readonly tabindex="-1" class="auto"></div>
+              <span class="hint" id="lfP_paid">取引の金額です。内訳項目から自動で計算されるため、ここでは変更できません（項目の構成は「各取引」で変えられます）。</span>
               <div class="lfx"><label for="lf_borrowTx" id="lfL_borrowTx">この取引の借入額</label><input id="lf_borrowTx" maxlength="200"></div>
               <span class="hint lfprev" id="lfP_borrowTx"></span>
               <div class="lfx"><label for="lf_repayTx" id="lfL_repayTx">この取引の返済額</label><input id="lf_repayTx" maxlength="200"></div>
@@ -898,6 +901,8 @@ function renderLfLetters(){
   const nItems = projDefs().items.length, nCols = $("ledgerColBox").querySelectorAll(".def").length, LT = ledgerLetters(nItems, nCols);
   $("lfStartLabel").innerHTML = ltSpan(LT.start) + esc(tr("開始時点の借入額"));
   LFX.forEach(f=>{ $("lfL_" + f.key).innerHTML = ltSpan(LT[f.key]) + esc(tr(f.label)); });
+  $("lfL_paid").innerHTML = ltSpan(LT.paid) + esc(tr("支払額"));
+  try { const c = compileDefs(readDefs()); $("lf_paid").value = c.errors.length ? "" : c.amountAuto ? (c.roots.map(x=>`${x.letter}（${x.name}）`).join(" + ") || "0") : "取引ごとに手入力（金額欄）"; } catch(_){}
   [...$("ledgerColBox").querySelectorAll(".def")].forEach((r,i)=>{ r.querySelector(".lt").textContent = LT.cols[i]; });
   $("lfLetterHint").textContent = `式の中では記号も使えます（内訳項目は ${nItems ? "A〜" + letterOf(nItems-1) : "なし"}、取引の金額＝${tr("支払額")}は ${LT.paid}）。`;
 }
@@ -1563,6 +1568,7 @@ function renderStructure(){
   rows.forEach((r,i)=>{ r.querySelector(".lt").textContent = letterOf(i); });
   const d = readDefs(); const c = compileDefs(d, d.itemsRaw);
   $("structView").innerHTML = c.errors.length ? `<div class="ferr">${c.errors.map(esc).join("<br>")}</div>` : structureHtml(c);
+  if (settings && $("lf_paid")) renderLfLetters();
 }
 function addConstRow(x){
   const i = defSeq++;
@@ -1907,7 +1913,7 @@ function renderLedger(){
       const when = isTxKey(e.month) ? monthLabel(e.month) : `${dates}（${monthLabel(e.month)}分）`;
       return `<tr data-id="${esc(e.month)}" class="${e.month===editingId?"editing":""}" tabindex="0"><td class="act"><button type="button" class="rowedit" aria-label="この行を編集">編集</button></td><td class="memo">${esc(when)}</td><td class="up">${yen(r.borrow || 0)}</td><td class="down">${yen(r.repayTotal)}</td><td class="bal">${balText(settings, r.end)}</td><td>${yen(r.paid)}</td>${items.map(x=>`<td>${yen(itemSum(e, x.id))}</td>`).join("")}${lcols.map(n=>`<td>${yen((r.cols || {})[n] || 0)}</td>`).join("")}<td class="memo" title="${esc(flow)}">${esc(flow)}</td><td class="memo" title="${esc(memo)}">${esc(memo)}</td></tr>`; }).join("");
     tb.innerHTML = `<thead><tr><th class="act"></th><th class="memo">支払日</th><th>${ltSpan(LTt.borrowTx)}${tr("借入額")}</th><th>${ltSpan(LTt.repayTx)}${tr("返済額")}</th><th>${ltSpan(LTt.balanceNow)}借入残高</th><th>${ltSpan(LTt.paid)}${tr("支払額")}</th>${items.map(x=>`<th>${ltSpan(x.letter)}${esc(x.name)}</th>`).join("")}${lcols.map((n,i)=>`<th>${ltSpan(LTt.cols[i])}${esc(n)}</th>`).join("")}<th class="memo">振込元 → 振込先</th><th class="memo">メモ</th></tr></thead><tbody>${lines}</tbody>` +
-      `<tfoot><tr><td class="act"></td><td>合計（${rows.length}件）</td><td title="${esc(tr("合計借入額"))}">${yen(S.loan)}</td><td title="${esc(tr("合計返済額"))}">${yen(S.repay)}</td><td title="現在の借入残高">${balText(settings, S.balance)}</td><td>${yen(sum("paid"))}</td>${items.map(x=>`<td>${yen(rows.reduce((a,{e})=>a+itemSum(e, x.id),0))}</td>`).join("")}${lcols.map(()=>"<td></td>").join("")}<td></td><td></td></tr></tfoot>`;
+      `<tfoot><tr><td class="act"></td><td>合計（${rows.length}件）</td><td>${yen(sum("borrow"))}</td><td>${yen(sum("repayTotal"))}</td><td title="現在の借入残高">${balText(settings, S.balance)}</td><td>${yen(sum("paid"))}</td>${items.map(x=>`<td>${yen(rows.reduce((a,{e})=>a+itemSum(e, x.id),0))}</td>`).join("")}${lcols.map(n=>`<td>${yen(rows.reduce((a,{r})=>a+((r.cols || {})[n] || 0),0))}</td>`).join("")}<td></td><td></td></tr></tfoot>`;
     return;
   }
   const head = `<thead><tr><th class="act"></th><th>月</th><th>その月の返済額</th><th>累計返済額</th><th>固定額</th><th>報酬</th><th>返済充当</th><th>本人報酬</th><th>貸付（補填）</th><th>先払い</th><th>月末振込</th><th>追加返済</th><th>残高</th><th class="memo">メモ</th></tr></thead>`;
