@@ -1637,6 +1637,7 @@ function fxContext(){
     LETTER_ORDER.forEach(([k,v])=>{ if (v && !letter.has(v)){ letter.set(v, LT[k]); title.set(v, tr(LFX.find(f=>f.key===k)?.label || v)); } });
     if (!letter.has("借入額")){ letter.set("借入額", LT.start); title.set("借入額", tr("開始時点の借入額")); }
     title.set("開始時点の借入額", tr("開始時点の借入額")); title.set("支払額", tr("支払額"));
+    Object.entries(SUM_TX).forEach(([k,v])=>{ letter.set(v, "Σ" + LT[k]); title.set(v, tr(v)); });
     L.cols.forEach((c,i)=>{ if (c.name){ letter.set(c.name, LT.cols[i]); title.set(c.name, c.name); } });
     if (!L.errors.length){
       if (L.startNode){ defs.set("開始時点の借入額", { node:L.startNode }); defs.set("借入額", { node:L.startNode }); }
@@ -1657,6 +1658,8 @@ function fxFull(n, C){ const d = C.defs.get(n); return d ? linText(linExpand(d.n
 function fxTipHtml(n){
   const C = fxCtx; if (!C) return "";
   const l = C.letter.get(n) || "", nm = C.title.get(n) || n, own = fxOwn(n, C);
+  const sk = Object.keys(SUM_TX).find(k=>SUM_TX[k] === n);
+  if (sk) return `<b>${esc(l)}　${esc(nm)}</b><div>${esc(C.LT[sk])}（${esc(tr(LFX.find(f=>f.key===sk).label))}）を、すべての取引の分だけ足したもの</div>`;
   if (!own) return `<b>${esc(l)}　${esc(nm)}</b><div>${n === "支払額" ? "取引ごとに入力する金額" : C.L.defs.consts.some(x=>x.name===n) ? "定数" : "手入力（式なし）"}</div>`;
   const full = fxFull(n, C);
   return `<b>${esc(l)}　${esc(nm)}</b><div>= ${fxHtml(own, C)}</div>` + (full !== own ? `<div class="tf">まとめると = ${fxHtml(full, C)}</div>` : "");
@@ -1674,7 +1677,7 @@ function fxTree(name, node, C, stack){
   const label = n=>{ const l = C.letter.get(n); return `${l ? `<span class="lt">${esc(l)}</span>` : ""}<span>${esc(C.title.get(n) || (LEDGER_VARS.includes(n) ? tr(n) : n))}</span>`; };
   const branch = (n, sg, st)=>{
     const d = C.defs.get(n);
-    if (!d) return `<li>${box(sg, label(n) + `<span class="tg">${n === "支払額" ? "取引の金額" : n === "開始時点の借入額" || n === "借入額" ? "最初に入力" : C.L.defs.consts.some(x=>x.name===n) ? "定数" : C.letter.has(n) && !LEDGER_VARS.includes(n) ? "手入力" : "取引から"}</span>`, "leaf")}</li>`;
+    if (!d) return `<li>${box(sg, label(n) + `<span class="tg">${n === "支払額" ? "取引の金額" : Object.values(SUM_TX).includes(n) ? "各取引の値の合計" : n === "開始時点の借入額" || n === "借入額" ? "最初に入力" : C.L.defs.consts.some(x=>x.name===n) ? "定数" : C.letter.has(n) && !LEDGER_VARS.includes(n) ? "手入力" : "取引から"}</span>`, "leaf")}</li>`;
     if (st.includes(n) || st.length > 12) return `<li>${box(sg, label(n) + '<span class="tg">（上と同じ）</span>', "leaf")}</li>`;
     return `<li>${box(sg, label(n))}<ul>${kids(d.node, [...st, n])}</ul></li>`;
   };
@@ -2230,7 +2233,9 @@ $("fxExpanded").addEventListener("click", e=>{ const b = e.target.closest(".xd")
     else { const cols = [...$("ledgerColBox").querySelectorAll(".def")], me = cols.indexOf(el.closest(".def"));
       use = LEDGER_VARS.filter(v=>!/^直近の取引の|^各取引の/.test(v)).concat(cols.slice(0, me).map(r=>r.querySelector("input").value.trim()).filter(Boolean)); }
     const o = { "": [...items, ...PLAIN.filter(n=>use.includes(n)).map(lv), ...consts, ...use.filter(n=>!LEDGER_VARS.includes(n)).map(n=>({ v:n, t:n }))] };
-    GROUPS.slice(1).forEach(g=>{ const l = g.names.filter(n=>use.includes(n)); if (l.length) o[g.p] = l.map(lv); });
+    const LT = ledgerLetters(rows.length, $("ledgerColBox").querySelectorAll(".def").length);
+    const sigma = n=>{ const k = Object.keys(SUM_TX).find(k=>SUM_TX[k] === n); return k ? `${tr(n)}（＝ ${LT[k]}「${tr(LFX.find(f=>f.key===k).label)}」の全取引分の合計）` : tr(n); };
+    GROUPS.slice(1).forEach(g=>{ const l = g.names.filter(n=>use.includes(n)); if (l.length) o[g.p] = l.map(n=>({ v: tr(n), t: sigma(n) })); });
     return o;
   }
   const fillNames = ()=>{ const l = (opts && opts[pp.value]) || []; pn.innerHTML = l.map(x=>`<option value="${esc(x.v)}">${esc(x.t)}</option>`).join(""); };
