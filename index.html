@@ -659,14 +659,20 @@ function calcMonth(e, s, prev, cum){
     const L = ledgerFx(s), st = cum && cum.sums ? cum : ledgerStart(L, s);
     const own = { paid }; L.defs.items.forEach(x=>{ own[x.id] = (e.transfers || []).reduce((a,t)=>a + toNum(t.parts && t.parts[x.id]), 0); });
     const sums = { ...st.sums }; Object.keys(own).forEach(k=>{ sums[k] = (sums[k] || 0) + own[k]; });
-    const count = st.count + 1, A = aggVars(L, s, sums, count), P = st.agg;
-    const v = { "支払額":paid, "件数":count, "合計借入額":A["合計借入額"], "合計返済額":A["合計返済額"], "残高":A["残高"],
+    const count = st.count + 1, P = st.agg, early = L.errors.length ? {} : (L.early || {});
+    const v = { "支払額":paid, "件数":count,
       "前回までの合計借入額":P["合計借入額"], "前回までの合計返済額":P["合計返済額"], "前回残高":P["残高"],
       "前回までの返済額":st.cumRepay, "前回までの支払額":st.sums.paid, "累計支払額":sums.paid };
     L.defs.items.forEach(x=>{ v[x.name] = own[x.id]; });
     const get = ledgerVals(L, s, v);
-    const borrow = v["今回の借入額"] = runFx(L, "borrowTx", get);
-    const repay = v["返済額"] = runFx(L, "repayTx", get);
+    // その取引の項目だけで決まる式は先に計算し、合計の式で「各取引の…の合計」として使えるようにする
+    let borrow = early.borrowTx ? (v["今回の借入額"] = runFx(L, "borrowTx", get)) : null;
+    let repay = early.repayTx ? (v["返済額"] = runFx(L, "repayTx", get)) : null;
+    const A = aggVars(L, s, sums, count, { "各取引の借入額の合計": (st.cumBorrow || 0) + (borrow || 0), "各取引の返済額の合計": st.cumRepay + (repay || 0) });
+    v["合計借入額"] = A["合計借入額"]; v["合計返済額"] = A["合計返済額"]; v["残高"] = A["残高"];
+    if (borrow === null) borrow = v["今回の借入額"] = runFx(L, "borrowTx", get);
+    if (repay === null) repay = v["返済額"] = runFx(L, "repayTx", get);
+    A["各取引の借入額の合計"] = (st.cumBorrow || 0) + borrow; A["各取引の返済額の合計"] = st.cumRepay + repay;
     v["累計返済額"] = st.cumRepay + repay;
     const cols = {}, ok = !L.errors.length;
     L.cols.forEach(col=>{ if (!col.name) return; const x = ok && col.node ? Math.round(evalNode(col.node, get)) : 0; v[col.name] = cols[col.name] = Number.isFinite(x) ? x : 0; });
@@ -676,7 +682,7 @@ function calcMonth(e, s, prev, cum){
     if (over > 0 && repay >= 0) notes.push(trS(s, A["合計借入額"] > 0 ? `支払額のうち ${yen(over)} は返済額に含めていません（計算式による）。` : `借入額が登録されていないため、この支払 ${yen(over)} は返済額に含めていません。「計算式」で開始時点の借入額か合計借入額の式を設定すると返済として計算されます。`));
     return { simple:true, F:0, R:0, rt:"none", rv:0, repay, net:0, loan:0, extraAuto:0, total:paid, P:0, rewardInPrepay:0, loanInPrepay:0,
       monthEnd:paid, rewardRemain:0, loanRemain:0, M:0, prev, end, repayTotal:repay, borrow, paid, over, cols, vars:v,
-      state:{ sums, count, agg:A, cumRepay: st.cumRepay + repay }, items:[{ name:UNCLASSIFIED, gross:0, repay, net:0 }], notes };
+      state:{ sums, count, agg:A, cumRepay: st.cumRepay + repay, cumBorrow: (st.cumBorrow || 0) + borrow }, items:[{ name:UNCLASSIFIED, gross:0, repay, net:0 }], notes };
   }
   const notes = [];
   const F = Math.max(0, hasVal(e.fixed) ? toNum(e.fixed) : toNum(s.defaultFixed));
@@ -772,9 +778,10 @@ function trS(s, str){ if (!s || s.inputMode !== "simple") return str; const t = 
 function tr(str){ return trS(settings, str); }
 // 「借入額」は以前の式との互換のための別名（＝開始時点の借入額）
 const LEDGER_VARS = ["支払額","開始時点の借入額","借入額","件数","合計借入額","合計返済額","残高","前回までの合計借入額","前回までの合計返済額","前回残高",
-  "今回の借入額","返済額","累計返済額","前回までの返済額","累計支払額","前回までの支払額","直近の取引の返済額","直近の取引の借入額"];
+  "今回の借入額","返済額","累計返済額","前回までの返済額","累計支払額","前回までの支払額","直近の取引の返済額","直近の取引の借入額","各取引の借入額の合計","各取引の返済額の合計"];
 const LEDGER_SYN = { "借入額":"開始時点の借入額" };
-const SUM_BASE = ["開始時点の借入額","借入額","支払額","件数"];
+const SUM_BASE = ["開始時点の借入額","借入額","支払額","件数","各取引の借入額の合計","各取引の返済額の合計"];
+const SUM_TX = { borrowTx:"各取引の借入額の合計", repayTx:"各取引の返済額の合計" };
 const TX_BASE = ["開始時点の借入額","借入額","支払額","件数","合計借入額","合計返済額","残高","前回までの合計借入額","前回までの合計返済額","前回残高"];
 /* 6つの式。use は式で使える名前（内訳項目名・定数名はどれでも使える） */
 const LFX = [
@@ -819,7 +826,13 @@ function compileLedger(src){
   const colList = cols.map((c,i)=>({ name:c.name, formula:c.formula, node: parse(c.formula, `列「${c.name || "（名前なし）"}」の式`, ["直近の取引の返済額","直近の取引の借入額", ...colNames.slice(i)]) }));
   // 開始時点の借入額は数字か、定数だけを使った式
   const startNode = parse(fx.start, trS(src, "開始時点の借入額の式"), [...LEDGER_VARS, ...itemNames, ...colNames]);
-  return { defs, nodes, dflt, startNode, cols: colList, errors, names, alias, letters: LT };
+  // 各取引の式を合計より先に計算できるか（合計借入額・合計返済額・残高を使っていない）。先に計算できる式だけ、合計の式で「各取引の…の合計」として使える
+  const early = {};
+  ["borrowTx","repayTx"].forEach(k=>{ const n = nodes[k]; const rf = n ? refsOf(n) : null;
+    early[k] = !!n && !["合計借入額","合計返済額","残高"].some(x=>rf.has(x)) && (k !== "repayTx" || !rf.has("今回の借入額") || early.borrowTx); });
+  const sumRefs = new Set(); ["loanTotal","repayTotal","balanceNow","repayNow"].forEach(k=>nodes[k] && refsOf(nodes[k], sumRefs));
+  Object.entries(SUM_TX).forEach(([k,v])=>{ if (sumRefs.has(v) && !early[k]) errors.push(trS(src, `「${v}」を使うには、「${LFX.find(f=>f.key===k).label}」の式を、その取引の項目だけで入れてください（合計借入額・合計返済額・残高は使えません）。`)); });
+  return { defs, nodes, dflt, startNode, cols: colList, errors, names, alias, letters: LT, early };
 }
 let ledgerCache = null, ledgerCacheKey = "";
 function ledgerFx(s){
@@ -841,8 +854,8 @@ function ledgerVals(L, s, v){
 function fxNode(L, key){ return !L.errors.length && L.nodes[key] ? L.nodes[key] : L.dflt[key]; }
 function runFx(L, key, get){ const x = Math.round(evalNode(fxNode(L, key), get)); return Number.isFinite(x) ? x : 0; }
 /* 取引の合計 sums（paid と 内訳項目id ごとの合計）に「合計」の式を当てはめる。返すのは式で使う名前と値の表 */
-function aggVars(L, s, sums, count){
-  const v = { "支払額": sums.paid || 0, "件数": count };
+function aggVars(L, s, sums, count, txSums){
+  const v = { "支払額": sums.paid || 0, "件数": count, "各取引の借入額の合計": 0, "各取引の返済額の合計": 0, ...(txSums || {}) };
   L.defs.items.forEach(x=>{ v[x.name] = sums[x.id] || 0; });
   const get = ledgerVals(L, s, v);
   v["合計借入額"] = runFx(L, "loanTotal", get);
@@ -850,7 +863,7 @@ function aggVars(L, s, sums, count){
   v["残高"] = runFx(L, "balanceNow", get);
   return v;
 }
-function ledgerStart(L, s){ return { sums:{ paid:0 }, count:0, cumRepay:0, agg: aggVars(L, s, { paid:0 }, 0) }; }
+function ledgerStart(L, s){ return { sums:{ paid:0 }, count:0, cumRepay:0, cumBorrow:0, agg: aggVars(L, s, { paid:0 }, 0) }; }
 /* 上部の数字：合計の式（すべての取引）と、現在の返済額（直近の取引の値を使える） */
 function ledgerSummary(rows, s){
   const L = ledgerFx(s), last = rows.length ? rows[rows.length-1].r.state : ledgerStart(L, s), near = nearestRow(rows);
@@ -1983,7 +1996,7 @@ function applyMode(){
   // 計算式ページの台帳の式まわり
   [["addLedgerCol","＋ 列を追加（例：未返済の支払＝支払額 − 返済額）"],
    ["lfHintTx","1件の取引ごとの式です（台帳の各行と、取引の入力欄の2項目）。内訳項目名と支払額は、その取引の額です。合計借入額・合計返済額・残高は「その取引までの合計」、前回までの合計借入額・前回までの合計返済額・前回残高は「ひとつ前の取引までの合計」です（下の「すべての取引の合計」の式で計算）。返済額の式では今回の借入額（この取引の借入額）も使えます。追加の列では、返済額・累計返済額・累計支払額・前回までの返済額・前回までの支払額も使えます。"],
-   ["lfHintSum","登録したすべての取引の合計に当てはめる式です。内訳項目名と支払額は、すべての取引の合計です。ほかに開始時点の借入額・件数・定数名を使えます。合計返済額の式では合計借入額、現在の残高の式では合計借入額・合計返済額、現在の返済額の式ではさらに残高・直近の取引の返済額・直近の取引の借入額（今日に最も近い取引の、上の「取引1件ごとの額」の式の値）も使えます。"],
+   ["lfHintSum","登録したすべての取引の合計に当てはめる式です。内訳項目名と支払額は、すべての取引の合計です。ほかに開始時点の借入額・件数・定数名と、各取引の借入額の合計・各取引の返済額の合計（上の「取引1件ごとの額」の式で出した値を全取引分足したもの）を使えます。合計返済額の式では合計借入額、現在の残高の式では合計借入額・合計返済額、現在の返済額の式ではさらに残高・直近の取引の返済額・直近の取引の借入額（今日に最も近い取引の、上の「取引1件ごとの額」の式の値）も使えます。"],
    ].forEach(([id,t])=>{ $(id).textContent = tr(t); });
   renderLfLetters();
 }
