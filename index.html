@@ -470,7 +470,7 @@ details summary{cursor:pointer;font-family:var(--font-display);font-weight:700;f
       <div class="btns"><button type="button" id="csvBtn">CSVで保存</button><button type="button" id="copyBtn">表をコピー</button></div>
     </div>
     <div class="tablewrap"><table class="ledger" id="ledger"></table></div>
-    <p class="muted small" style="margin:8px 0 0">左の4つの金額は上部の4項目と同じ項目で、各行はその取引の時点の値、いちばん下の「現在」の行は上部の数字と同じです。<br>各行の「編集」（または行のクリック）で、登録済みの記録を上の入力欄に読み込んで直せます。直したら保存を押してください。</p>
+    <p class="muted small" style="margin:8px 0 0">各行は、その取引の借入額・返済額と、その取引を含めた時点の借入残高です。いちばん下の行は、合計借入額・合計返済額・現在の借入残高（上部の数字と同じ）です。<br>各行の「編集」（または行のクリック）で、登録済みの記録を上の入力欄に読み込んで直せます。直したら保存を押してください。</p>
   </section>
 
   <section class="panel pv sv" id="settingsPanel">
@@ -1646,7 +1646,7 @@ function renderLedger(){
   if (isSimple()){
     const items = projDefs().items, lcols = ledgerFx(settings).cols.map(c=>c.name).filter(Boolean);
     const itemSum = (e, id)=>(e.transfers || []).reduce((a,t)=>a + toNum(t.parts && t.parts[id]), 0);
-    // 列は上部の4項目と同じ（各行はその取引の時点の値、いちばん下の行は上部の数字と同じ）
+    // 各行はその取引の借入額・返済額と、その取引を含めた時点の借入残高。いちばん下の行は合計借入額・合計返済額・現在の借入残高（上部と同じ）
     const S = ledgerSummary(rows, settings);
     const lines = rows.map(({e,r})=>{
       const trs = (e.transfers || []).filter(t=>t.amount > 0);
@@ -1654,10 +1654,9 @@ function renderLedger(){
       const flow = [...new Set(trs.map(t=>`${transferWho(t,"from")} → ${transferWho(t,"to")}`))].join("、") || "—";
       const memo = [e.memo, ...trs.map(t=>t.memo)].filter(Boolean).join("・");
       const when = isTxKey(e.month) ? monthLabel(e.month) : `${dates}（${monthLabel(e.month)}分）`;
-      const A = r.state.agg;
-      return `<tr data-id="${esc(e.month)}" class="${e.month===editingId?"editing":""}" tabindex="0"><td class="act"><button type="button" class="rowedit" aria-label="この行を編集">編集</button></td><td class="memo">${esc(when)}</td><td class="bal">${balText(settings, r.end)}</td><td class="down">${yen(r.repayTotal)}</td><td>${yen(A["合計借入額"])}</td><td class="down">${yen(A["合計返済額"])}</td><td>${yen(r.paid)}</td>${items.map(x=>`<td>${yen(itemSum(e, x.id))}</td>`).join("")}${lcols.map(n=>`<td>${yen((r.cols || {})[n] || 0)}</td>`).join("")}<td class="memo" title="${esc(flow)}">${esc(flow)}</td><td class="memo" title="${esc(memo)}">${esc(memo)}</td></tr>`; }).join("");
-    tb.innerHTML = `<thead><tr><th class="act"></th><th class="memo">支払日</th><th>${tr("現在の残高")}</th><th>${tr("現在の返済額")}</th><th>${tr("合計借入額")}</th><th>${tr("合計返済額")}</th><th>${tr("支払額")}</th>${items.map(x=>`<th>${esc(x.name)}</th>`).join("")}${lcols.map(n=>`<th>${esc(n)}</th>`).join("")}<th class="memo">振込元 → 振込先</th><th class="memo">メモ</th></tr></thead><tbody>${lines}</tbody>` +
-      `<tfoot><tr><td class="act"></td><td title="上部の4項目と同じ値">現在（${rows.length}件）</td><td>${balText(settings, S.balance)}</td><td>${yen(S.repayNow)}</td><td>${yen(S.loan)}</td><td>${yen(S.repay)}</td><td>${yen(sum("paid"))}</td>${items.map(x=>`<td>${yen(rows.reduce((a,{e})=>a+itemSum(e, x.id),0))}</td>`).join("")}${lcols.map(()=>"<td></td>").join("")}<td></td><td></td></tr></tfoot>`;
+      return `<tr data-id="${esc(e.month)}" class="${e.month===editingId?"editing":""}" tabindex="0"><td class="act"><button type="button" class="rowedit" aria-label="この行を編集">編集</button></td><td class="memo">${esc(when)}</td><td class="up">${yen(r.borrow || 0)}</td><td class="down">${yen(r.repayTotal)}</td><td class="bal">${balText(settings, r.end)}</td><td>${yen(r.paid)}</td>${items.map(x=>`<td>${yen(itemSum(e, x.id))}</td>`).join("")}${lcols.map(n=>`<td>${yen((r.cols || {})[n] || 0)}</td>`).join("")}<td class="memo" title="${esc(flow)}">${esc(flow)}</td><td class="memo" title="${esc(memo)}">${esc(memo)}</td></tr>`; }).join("");
+    tb.innerHTML = `<thead><tr><th class="act"></th><th class="memo">支払日</th><th>${tr("借入額")}</th><th>${tr("返済額")}</th><th>借入残高</th><th>${tr("支払額")}</th>${items.map(x=>`<th>${esc(x.name)}</th>`).join("")}${lcols.map(n=>`<th>${esc(n)}</th>`).join("")}<th class="memo">振込元 → 振込先</th><th class="memo">メモ</th></tr></thead><tbody>${lines}</tbody>` +
+      `<tfoot><tr><td class="act"></td><td>合計（${rows.length}件）</td><td title="${esc(tr("合計借入額"))}">${yen(S.loan)}</td><td title="${esc(tr("合計返済額"))}">${yen(S.repay)}</td><td title="現在の借入残高">${balText(settings, S.balance)}</td><td>${yen(sum("paid"))}</td>${items.map(x=>`<td>${yen(rows.reduce((a,{e})=>a+itemSum(e, x.id),0))}</td>`).join("")}${lcols.map(()=>"<td></td>").join("")}<td></td><td></td></tr></tfoot>`;
     return;
   }
   const head = `<thead><tr><th class="act"></th><th>月</th><th>その月の返済額</th><th>累計返済額</th><th>固定額</th><th>報酬</th><th>返済充当</th><th>本人報酬</th><th>貸付（補填）</th><th>先払い</th><th>月末振込</th><th>追加返済</th><th>残高</th><th class="memo">メモ</th></tr></thead>`;
