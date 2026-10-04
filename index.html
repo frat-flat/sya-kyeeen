@@ -47,6 +47,9 @@ h2{font-size:1.15rem;font-weight:700}
 .kpi b{display:block;font-size:1.35rem;font-family:var(--font-body);font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .kpi.main b{color:var(--loan)}
 #settingsForm[data-page="formulas"][data-ftab="sum"] #defsSet,#settingsForm[data-page="formulas"][data-ftab="tx"] #ledgerFxSet{display:none!important}
+.ftab-all{display:none;font-size:1rem;font-weight:700;margin:6px 0 0;padding-bottom:6px;border-bottom:2px solid var(--line)}
+#settingsForm[data-page="formulas"][data-ftab="all"] .ftab-all{display:block}
+#settingsForm[data-ftab="all"] #ledgerFxSet{margin-top:18px}
 .ledger .act{width:1%;padding-left:6px;padding-right:2px}
 .rowedit{padding:3px 10px;font-size:.8rem;white-space:nowrap}
 .ledger tr.editing .rowedit{background:var(--accent);color:#fff;border-color:var(--accent)}
@@ -514,8 +517,9 @@ details summary{cursor:pointer;font-family:var(--font-display);font-weight:700;f
           <div class="field calc-only"><label for="sSurplus">報酬が固定額を上回った月</label><select id="sSurplus"><option value="pay">上回った分も全額支払う</option><option value="repay">上回った分を追加返済に回す</option></select></div>
         </div>
         </div>
-        <div class="tabs spage" data-pages="formulas" id="lfTabs" role="tablist"><button type="button" role="tab" data-lt="tx" aria-selected="true">各取引</button><button type="button" role="tab" data-lt="sum" aria-selected="false">合計</button></div>
+        <div class="tabs spage" data-pages="formulas" id="lfTabs" role="tablist"><button type="button" role="tab" data-lt="tx" aria-selected="true">各取引</button><button type="button" role="tab" data-lt="sum" aria-selected="false">合計</button><button type="button" role="tab" data-lt="all" aria-selected="false">総合</button></div>
         <div class="spage" data-pages="items formulas" id="defsSet" style="display:grid;gap:12px">
+          <div class="ftab-all">各取引の内訳</div>
           <span class="hint spage" data-pages="items">1回の支払いを分ける項目（例：送金額、固定報酬額）と、その項目が指すものを登録します。項目どうしの計算は「計算式」ページで設定します。</span>
           <span class="hint spage" data-pages="formulas">項目ごとに計算式を入れると、ほかの項目から自動で計算されます。空欄の項目は手入力です。式の中では項目名のほか、行の左の記号（A・B…）も使えます。項目名の追加・変更は「内訳項目」ページで行います。</span>
           <div class="defhead"><span></span><span>項目名</span><span class="f">計算式（空欄なら手入力）</span><span class="d">定義（この項目が指すもの）</span><span></span></div>
@@ -531,6 +535,7 @@ details summary{cursor:pointer;font-family:var(--font-display);font-weight:700;f
           <div class="ferr" id="defErr" hidden></div>
         </div>
         <div class="spage" data-pages="formulas" id="ledgerFxSet" style="display:grid;gap:10px">
+          <div class="ftab-all">過去分を含めた合算の内訳</div>
           <div class="ptitle">台帳の計算式</div>
           <span class="hint calc-only">台帳の計算式は「返済額を直接入力」方式で使います。「基本情報」で入力方法を切り替えると設定できます。</span>
           <div class="lfx simple-only"><label for="lfStart" id="lfStartLabel">開始時点の借入額</label><input id="lfStart" maxlength="200" placeholder="0"></div>
