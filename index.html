@@ -106,8 +106,8 @@ body:has(#settingsForm[data-page="formulas"][data-ftab="all"]) .wrap{max-width:1
 .ledger tr.editing .rowedit{background:var(--accent);color:#fff;border-color:var(--accent)}
 .lfsub{font-weight:700;font-size:.92rem;margin-top:6px}
 .lfprev{white-space:pre-line;overflow-wrap:anywhere;margin:-4px 0 4px}
-/* 返済額を直接入力する方式では 現在の借入額・現在の返済額・合計借入額・合計返済額 の順 */
-.kpis.simple .kpi.main{order:-2} .kpis.simple .kpi.now{order:-1}
+/* 返済額を直接入力する方式では 現在の借入額・合計借入額・合計返済額 の順 */
+.kpis.simple .kpi.main{order:-2} .kpis.simple .kpi.now{display:none} .kpis.simple{grid-template-columns:repeat(3,minmax(0,1fr))}
 .calc{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,6fr);gap:20px;align-items:start}
 /* 明細を表で入力するときは、入力欄を横いっぱいに使う（計算結果は下に回す） */
 .calc.wide{grid-template-columns:minmax(0,1fr)}
@@ -331,6 +331,7 @@ details summary{cursor:pointer;font-family:var(--font-display);font-weight:700;f
 @media (max-width:820px){
   .calc{grid-template-columns:minmax(0,1fr)}
   .kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .kpis.simple{grid-template-columns:repeat(2,minmax(0,1fr))} .kpis.simple .kpi.main{grid-column:1/-1}
 }
 @media (max-width:420px){ .row,.bigline{grid-template-columns:minmax(0,1fr)} }
 @media (prefers-reduced-motion:no-preference){ .bar div{transition:width .25s ease} }
@@ -557,7 +558,7 @@ details summary{cursor:pointer;font-family:var(--font-display);font-weight:700;f
         <fieldset class="simple-only" id="termsSet">
           <legend>表示する言葉（借金の返済以外にも使えるように変更できます）</legend>
           <div class="row">
-            <div class="field"><label for="t_repay">「返済」</label><input id="t_repay" maxlength="10"><span class="hint">合計返済額・現在の返済額・この取引の返済額・累計返済額</span></div>
+            <div class="field"><label for="t_repay">「返済」</label><input id="t_repay" maxlength="10"><span class="hint">合計返済額・この取引の返済額・累計返済額</span></div>
             <div class="field"><label for="t_paid">「支払額」</label><input id="t_paid" maxlength="10"><span class="hint">台帳の支払額（この取引で払った額）</span></div>
           </div>
           <div class="row">
@@ -612,8 +613,6 @@ details summary{cursor:pointer;font-family:var(--font-display);font-weight:700;f
               <span class="hint" id="lfHintSum"></span>
               <div class="lfx"><label for="lf_balanceNow" id="lfL_balanceNow">現在の残高</label><input id="lf_balanceNow" maxlength="200"></div>
               <span class="hint lfprev" id="lfP_balanceNow"></span>
-              <div class="lfx"><label for="lf_repayNow" id="lfL_repayNow">現在の返済額</label><input id="lf_repayNow" maxlength="200"></div>
-              <span class="hint lfprev" id="lfP_repayNow"></span>
               <div class="lfx"><label for="lf_loanTotal" id="lfL_loanTotal">合計借入額</label><input id="lf_loanTotal" maxlength="200"></div>
               <span class="hint lfprev" id="lfP_loanTotal"></span>
               <div class="lfx"><label for="lf_repayTotal" id="lfL_repayTotal">合計返済額</label><input id="lf_repayTotal" maxlength="200"></div>
@@ -787,7 +786,7 @@ function buildLedger(months, s){
 function startBal(s){ return s.inputMode === "simple" ? ledgerStart(ledgerFx(s), s).agg["残高"] : toNum(s.startBalance); }
 
 /* ---------- 台帳の計算式（プロジェクトごと） ----------
-   「合計」の式（合計借入額・合計返済額・現在の残高・現在の返済額）は、取引の合計（内訳項目・支払額の合計）から求める。
+   「合計」の式（合計借入額・合計返済額・現在の残高）は、取引の合計（内訳項目・支払額の合計）から求める。
    「各取引」の式（この取引の借入額・返済額）と追加の列は、1取引ごとに、その取引の額とその取引までの合計から求める。 */
 /* 表示する言葉（プロジェクトごと）。借金の返済以外にも使えるように「返済」「借入額」「残高」「支払額」を置き換えられる */
 const TERM_DEFAULTS = { repay:"返済", loan:"借入額", balance:"残高", paid:"支払額" };
@@ -811,11 +810,10 @@ const LFX = [
   { key:"loanTotal", tab:"sum", label:"合計借入額", dflt:"開始時点の借入額", use: SUM_BASE },
   { key:"repayTotal", tab:"sum", label:"合計返済額", dflt:"最小(支払額, 合計借入額)", use: [...SUM_BASE, "合計借入額"] },
   { key:"balanceNow", tab:"sum", label:"現在の残高", dflt:"最大(合計借入額 - 合計返済額, 0)", use: [...SUM_BASE, "合計借入額","合計返済額"] },
-  { key:"repayNow", tab:"sum", label:"現在の返済額", dflt:"直近の取引の返済額", use: [...SUM_BASE, "合計借入額","合計返済額","残高","直近の取引の返済額","直近の取引の借入額"] },
 ];
 const LEDGER_DEFAULT = Object.fromEntries(LFX.map(f=>[f.key, f.dflt]));
 /* 台帳の項目の記号。内訳項目（A, B…）の続きを、計算式ページの並びの順に振る。式の中でも記号で書ける */
-const LETTER_ORDER = [["start","開始時点の借入額"],["borrowTx","今回の借入額"],["repayTx","返済額"],["balanceNow","残高"],["repayNow",null],["loanTotal","合計借入額"],["repayTotal","合計返済額"]];
+const LETTER_ORDER = [["start","開始時点の借入額"],["borrowTx","今回の借入額"],["repayTx","返済額"],["balanceNow","残高"],["loanTotal","合計借入額"],["repayTotal","合計返済額"]];
 function ledgerLetters(nItems, nCols){
   const o = {}; LETTER_ORDER.forEach(([k],i)=>{ o[k] = letterOf(nItems + i); });
   o.cols = Array.from({ length: nCols }, (_,i)=>letterOf(nItems + LETTER_ORDER.length + i));
@@ -853,7 +851,7 @@ function compileLedger(src){
   const early = {};
   ["borrowTx","repayTx"].forEach(k=>{ const n = nodes[k]; const rf = n ? refsOf(n) : null;
     early[k] = !!n && !["合計借入額","合計返済額","残高"].some(x=>rf.has(x)) && (k !== "repayTx" || !rf.has("今回の借入額") || early.borrowTx); });
-  const sumRefs = new Set(); ["loanTotal","repayTotal","balanceNow","repayNow"].forEach(k=>nodes[k] && refsOf(nodes[k], sumRefs));
+  const sumRefs = new Set(); ["loanTotal","repayTotal","balanceNow"].forEach(k=>nodes[k] && refsOf(nodes[k], sumRefs));
   Object.entries(SUM_TX).forEach(([k,v])=>{ if (sumRefs.has(v) && !early[k]) errors.push(trS(src, `「${v}」を使うには、「${LFX.find(f=>f.key===k).label}」の式を、その取引の項目だけで入れてください（合計借入額・合計返済額・残高は使えません）。`)); });
   return { defs, nodes, dflt, startNode, cols: colList, errors, names, alias, letters: LT, early };
 }
@@ -888,12 +886,11 @@ function aggVars(L, s, sums, count, txSums){
   return v;
 }
 function ledgerStart(L, s){ return { sums:{ paid:0 }, count:0, cumRepay:0, cumBorrow:0, agg: aggVars(L, s, { paid:0 }, 0) }; }
-/* 上部の数字：合計の式（すべての取引）と、現在の返済額（直近の取引の値を使える） */
+/* 上部の数字：合計の式（すべての取引） */
 function ledgerSummary(rows, s){
   const L = ledgerFx(s), last = rows.length ? rows[rows.length-1].r.state : ledgerStart(L, s), near = nearestRow(rows);
   const v = { ...last.agg, "直近の取引の返済額": near ? near.r.repayTotal : 0, "直近の取引の借入額": near ? near.r.borrow : 0 };
-  const repayNow = runFx(L, "repayNow", ledgerVals(L, s, v));
-  return { v, near, loan: v["合計借入額"], repay: v["合計返済額"], balance: v["残高"], repayNow };
+  return { v, near, loan: v["合計借入額"], repay: v["合計返済額"], balance: v["残高"] };
 }
 /* 式に数値を入れた形（帳尻を確かめられるように計算式ページに出す） */
 function fmtN(n){ n = Math.round(n || 0); return n < 0 ? `(−${(-n).toLocaleString("ja-JP")})` : n.toLocaleString("ja-JP"); }
@@ -1902,8 +1899,6 @@ function renderLedger(){
     const S = ledgerSummary(rows, settings);
     $("kRepay").textContent = yen(S.loan);
     $("kLast").textContent = yen(S.repay);
-    $("kLoan").textContent = yen(S.repayNow);
-    $("kLoan").title = lastRow ? `直近の取引：${monthLabel(lastRow.e.month)}` : "";
   } else {
     $("kLoan").textContent = yen(sum("loan")); $("kLoan").title = "";
     $("kRepay").textContent = yen(sum("repayTotal"));
@@ -2030,12 +2025,12 @@ function applyMode(){
   $("kBalanceLabel").textContent = sm ? tr("現在の残高") : "現在の貸付残高";
   $("kLoanLabel").textContent = sm ? tr("現在の返済額") : "累計 貸付（補填）";
   if (sm){ const LT = ledgerLetters(projDefs().items.length, (settings.ledgerCols || []).length);
-    [["kBalanceLabel","balanceNow"],["kLoanLabel","repayNow"],["kRepayLabel","loanTotal"],["kLastLabel","repayTotal"]].forEach(([id,k])=>{ $(id).insertAdjacentHTML("afterbegin", ltSpan(LT[k])); }); }
+    [["kBalanceLabel","balanceNow"],["kRepayLabel","loanTotal"],["kLastLabel","repayTotal"]].forEach(([id,k])=>{ $(id).insertAdjacentHTML("afterbegin", ltSpan(LT[k])); }); }
   $("kLoan").classList.toggle("down", sm);
   // 計算式ページの台帳の式まわり
   [["addLedgerCol","＋ 列を追加（例：未返済の支払＝支払額 − 返済額）"],
    ["lfHintTx","1件の取引ごとの式です（台帳の各行と、取引の入力欄の2項目）。内訳項目名と支払額は、その取引の額です。合計借入額・合計返済額・残高は「その取引までの合計」、前回までの合計借入額・前回までの合計返済額・前回残高は「ひとつ前の取引までの合計」です（下の「すべての取引の合計」の式で計算）。返済額の式では今回の借入額（この取引の借入額）も使えます。追加の列では、返済額・累計返済額・累計支払額・前回までの返済額・前回までの支払額も使えます。"],
-   ["lfHintSum","登録したすべての取引の合計に当てはめる式です。内訳項目名と支払額は、すべての取引の合計です。ほかに開始時点の借入額・件数・定数名と、各取引の借入額の合計・各取引の返済額の合計（上の「取引1件ごとの額」の式で出した値を全取引分足したもの）を使えます。合計返済額の式では合計借入額、現在の残高の式では合計借入額・合計返済額、現在の返済額の式ではさらに残高・直近の取引の返済額・直近の取引の借入額（今日に最も近い取引の、上の「取引1件ごとの額」の式の値）も使えます。"],
+   ["lfHintSum","登録したすべての取引の合計に当てはめる式です。内訳項目名と支払額は、すべての取引の合計です。ほかに開始時点の借入額・件数・定数名と、各取引の借入額の合計・各取引の返済額の合計（上の「取引1件ごとの額」の式で出した値を全取引分足したもの）を使えます。合計返済額の式では合計借入額、現在の残高の式では合計借入額・合計返済額も使えます。"],
    ].forEach(([id,t])=>{ $(id).textContent = tr(t); });
   renderLfLetters();
 }
