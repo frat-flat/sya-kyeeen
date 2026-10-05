@@ -2390,14 +2390,20 @@ $("projDelYes").addEventListener("click", async ()=>{
   finally { $("projDelYes").disabled = false; }
 });
 
-function csvText(){
-  const rows = buildLedger(months, settings);
-  const head = ["月","固定支払額","報酬","返済充当","本人報酬","貸付(補填)","先払い","うち報酬分","月末振込","追加返済","月初残高","月末残高","メモ","報酬の内訳"];
-  const lines = rows.map(({e,r})=>[e.month,r.F,r.R,r.repay+r.extraAuto,r.net,r.loan,r.P,r.rewardInPrepay,r.monthEnd,r.M,r.prev,r.end,`"${String(e.memo||"").replace(/"/g,'""')}"`,`"${r.items.map(x=>`${x.name}:${x.gross}(返済${x.repay}/報酬${x.net})`).join(" / ").replace(/"/g,'""')}"`].join(","));
-  return [head.join(",")].concat(lines).join("\n");
+/* CSV・コピーは画面の台帳そのもの（同じ列・同じ順・同じ値、合計行つき）から作る。金額は表計算で使えるよう数字だけにする */
+function csvText(sep = ","){
+  renderLedger();
+  const tb = $("ledger"), cellText = c=>{
+    const lt = c.querySelector(".lt"), txt = c.innerText.replace(/\s+/g, " ").trim();
+    if (lt) return `${lt.textContent.trim()} ${txt.slice(lt.textContent.trim().length).trim()}`;
+    return /^-?[\d,]+円$/.test(txt) ? txt.replace(/[,円]/g, "") : txt;
+  };
+  const q = v=>sep === "\t" ? String(v).replace(/[\t\n]/g, " ") : (/[",\n]/.test(v) ? `"${String(v).replace(/"/g,'""')}"` : v);
+  return [...tb.querySelectorAll("tr")].filter(tr=>!tr.querySelector("td.empty"))
+    .map(tr=>[...tr.cells].filter(c=>!c.classList.contains("act")).map(c=>q(cellText(c))).join(sep)).join("\n");
 }
 $("copyBtn").addEventListener("click", ()=>{
-  const text = csvText().replace(/,/g,"\t");
+  const text = csvText("\t");
   navigator.clipboard.writeText(text).then(()=>flash("toast","表をコピーしました。スプレッドシートに貼り付けできます。"), ()=>flash("toast","コピーできませんでした。"));
 });
 $("csvBtn").hidden = true;
