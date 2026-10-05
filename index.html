@@ -2475,18 +2475,38 @@ async function onSession(session){
   document.body.classList.remove("checking");
   if (!session){
     store = { mode:"api", auth: store.auth, uid: null };
+    allMonths = []; normalizeMeta({}); refreshView(true);
     document.body.classList.add("locked");
     $("userEmail").hidden = true; $("logoutBtn").hidden = true; $("importBox").hidden = true;
     $("storeBadge").textContent = "ログインしてください";
     return;
   }
   if (store.uid === session.userId) return;
+  // ブラウザに残っているログイン情報だけでは開かない。サーバーがログインを確かめてデータを返してから台帳を見せる
   store = { mode:"api", auth: store.auth, uid: session.userId };
-  document.body.classList.remove("locked");
-  $("userEmail").textContent = session.email || ""; $("userEmail").hidden = false; $("logoutBtn").hidden = false;
+  allMonths = []; normalizeMeta({});   // この端末に残っている古いデータは表示しない
+  document.body.classList.add("locked", "checking"); $("authWaitMsg").textContent = "ログイン状態を確認しています…"; $("authRetry").hidden = true;
   $("storeBadge").textContent = "読み込み中…";
-  try { await loadFromApi(); $("storeBadge").textContent = "クラウドに保存（どの端末からも同じ台帳）"; }
-  catch(_){ $("storeBadge").textContent = "読み込めませんでした。再読み込みしてください"; }
+  try {
+    await loadFromApi();
+    if (store.uid !== session.userId) return;
+    document.body.classList.remove("locked", "checking");
+    $("userEmail").textContent = session.email || ""; $("userEmail").hidden = false; $("logoutBtn").hidden = false;
+    $("storeBadge").textContent = "クラウドに保存（どの端末からも同じ台帳）";
+  } catch(e){
+    if (store.uid !== session.userId) return;
+    if (e && (e.status === 401 || e.status === 403)){
+      // サーバーが認めないログイン（期限切れ・取り消し済みなど）は捨てて、ログイン画面に戻す
+      try { await store.auth.signOut(); } catch(_){}
+      store = { mode:"api", auth: store.auth, uid: null };
+      document.body.classList.remove("checking");
+      $("storeBadge").textContent = "ログインしてください";
+      $("authMsg").textContent = "ログインの有効期限が切れました。もう一度ログインしてください。";
+    } else {
+      $("authWaitMsg").textContent = "台帳を読み込めませんでした。通信を確かめて再読み込みしてください。"; $("authRetry").hidden = false;
+      $("storeBadge").textContent = "読み込めませんでした";
+    }
+  }
 }
 function authError(m){
   m = String(m || "");
@@ -2498,8 +2518,8 @@ function authError(m){
 }
 async function startCloud(){
   let cfg;
-  try { const r = await fetch("/api/config", { cache:"no-store" }); if (!r.ok) return; cfg = await r.json(); } catch(_){ return "offline"; }
-  if (!cfg || !cfg.authUrl || !/^[a-z]+$/.test(cfg.authProvider || "")) return;
+  try { const r = await fetch("/api/config", { cache:"no-store" }); if (!r.ok) return "noconfig"; cfg = await r.json(); } catch(_){ return "offline"; }
+  if (!cfg || !cfg.authUrl || !/^[a-z]+$/.test(cfg.authProvider || "")) return "noconfig";
   let auth;
   try { auth = await (await import(`./auth/${cfg.authProvider}.js`)).create(cfg); }
   catch(_){ $("storeBadge").textContent = "ログインの準備ができませんでした。再読み込みしてください"; return "offline"; }
@@ -2537,6 +2557,9 @@ if (!inClaude && location.protocol !== "file:"){
   startCloud().then(res=>{
     if (store.mode === "api") return;
     // 公開サイトで接続できないときは、この端末だけの保存に切り替えず止める（ログインせずに入れてしまうのを防ぐ）
+    // ログインの仕組みが無い環境で、この端末だけの保存を使えるのは手元での確認（localhost）のときだけ
+    const dev = /^(localhost|127\.0\.0\.1)$/.test(location.hostname);
+    if (res === "noconfig" && !dev){ $("authWaitMsg").textContent = "ログインの設定を読み込めませんでした。時間をおいて再読み込みしてください。"; $("authRetry").hidden = false; $("storeBadge").textContent = "接続できません"; return; }
     if (res === "offline"){ $("authWaitMsg").textContent = "サーバーに接続できませんでした。通信を確かめて再読み込みしてください。"; $("authRetry").hidden = false; $("storeBadge").textContent = "接続できません"; return; }
     document.body.classList.remove("locked", "checking"); $("storeBadge").textContent = "このブラウザに保存";
   });
